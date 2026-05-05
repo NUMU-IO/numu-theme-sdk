@@ -26,7 +26,7 @@ describe('resolveThemeSettings', () => {
         section_groups: {},
         global_settings: { primary_color: '#000' },
       };
-      const result = resolveThemeSettings(v3);
+      const result = resolveThemeSettings(v3 as unknown as Record<string, unknown>);
       expect(result.schema_version).toBe(3);
       expect(result.theme_id).toBe('bazar');
       expect(result.templates.home.sections.hero_1.settings.title).toBe('Hello');
@@ -69,6 +69,19 @@ describe('resolveThemeSettings', () => {
       expect(result.templates.home.sections.hero_1).toBeDefined();
       expect(result.templates.home.sections.hero_1.settings.headline).toBe('Welcome');
     });
+
+    it('preserves Arabic hero headline (parity with backend mapper)', () => {
+      const legacy = {
+        theme: { base_theme: 'bazar' },
+        hero: {
+          headline: 'Welcome',
+          headline_ar: 'مرحبا',
+        },
+      };
+      const result = resolveThemeSettings(legacy as any);
+      const heroSettings = result.templates.home.sections.hero_1.settings;
+      expect(heroSettings.headline_ar).toBe('مرحبا');
+    });
   });
 
   describe('V2 normalization', () => {
@@ -108,7 +121,7 @@ describe('resolveThemeSettings', () => {
           mode: 'production',
         },
       };
-      const result = resolveThemeSettings(v3);
+      const result = resolveThemeSettings(v3 as unknown as Record<string, unknown>);
       expect(result.external_theme?.bundle_url).toBe('https://cdn.example.com/theme.js');
     });
   });
