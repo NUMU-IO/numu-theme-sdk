@@ -1,5 +1,6 @@
 "use client";
 import {
+  useEffect,
   useState,
   useCallback,
   useMemo,
@@ -13,6 +14,10 @@ import {
   ThemeSettingsContext,
   LocalizationContext,
 } from "../contexts";
+import {
+  CustomerActionsContext,
+  type CustomerActions,
+} from "../contexts/customer-actions";
 import type { Store, Cart, Customer } from "../types/entities";
 import type { ThemeSettingsV3 } from "../types/theme";
 import type { LocalizationState } from "../contexts";
@@ -38,15 +43,40 @@ const EMPTY_CART: Cart = {
 };
 
 /**
+ * Read the `numu_csrf` cookie value from document.cookie.
+ *
+ * The storefront's GET /api/cart sets this on first fetch; we echo it
+ * back in `x-numu-csrf` on every mutation so the proxy can verify the
+ * double-submit. Without this gate any XSS in a theme can drain the
+ * customer's cart by hitting /api/cart/add directly.
+ */
+function readCsrfCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|;\s*)numu_csrf=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/**
  * postCartMutation — shared helper for cart writes.
  *
- * Implements request versioning so a burst of "+ + +" clicks doesn't apply
- * stale responses. Each call reserves a token; only the response for the
- * highest-numbered token is allowed to update local state. Older responses
- * are dropped without affecting the cart.
+ * Three concerns layered together:
  *
- * Returns the latest cart state (whatever the server says), but the caller
- * shouldn't blindly setState from it — `applyCart` already filtered.
+ *   1. Request versioning so a burst of "+ + +" clicks doesn't apply
+ *      stale responses. Each call reserves a token; only the response
+ *      for the highest-numbered token is allowed to update local state.
+ *
+ *   2. CSRF: every cart mutation includes `x-numu-csrf` from the cookie.
+ *      The /api/cart/* proxy compares cookie + header (double-submit)
+ *      and rejects mismatches with 403.
+ *
+ *   3. Idempotency: each call mints a UUID idempotency key. The
+ *      backend (when supported) caches the response for that key in
+ *      Redis so a double-clicked Add-to-Cart only mutates state once.
+ *      Wire format is stable; backend honoring it is opt-in.
+ *
+ * Returns the latest cart state (whatever the server says), but the
+ * caller shouldn't blindly setState from it — `applyCart` already
+ * filtered.
  */
 async function postCartMutation(
   endpoint: string,
@@ -55,9 +85,22 @@ async function postCartMutation(
   reserveToken: () => number,
 ): Promise<void> {
   const token = reserveToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const csrf = readCsrfCookie();
+  if (csrf) headers["x-numu-csrf"] = csrf;
+  // Idempotency key — randomUUID is widely supported; fall back if not
+  // (older Safari, embedded webviews).
+  const idempotencyKey =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  headers["x-numu-idempotency-key"] = idempotencyKey;
+
   const res = await fetch(endpoint, {
     method: body === undefined ? "DELETE" : "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) return;
@@ -85,6 +128,222 @@ export function NuMuProvider({
     initialLocale || store.default_language || "en",
   );
   const [translations] = useState(initialTranslations || {});
+
+  // ── Customer state + auth actions ──────────────────────────────────────
+  // Customer comes from one of three sources, in order of precedence:
+  //   1. SSR-supplied `customer` prop (when /account/* routes pre-fetch
+  //      the customer server-side via the cookie).
+  //   2. The mount effect below which calls GET /api/customer/me, used
+  //      on routes that don't pre-fetch (home/product/etc.) to keep the
+  //      cart drawer / header user menu accurate.
+  //   3. Mutations triggered by `useCustomerActions()` (login/logout/
+  //      register/updateProfile) — these refresh state immediately.
+  const [customerState, setCustomerState] = useState<Customer | null>(
+    customer ?? null,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Skip the GET if the SSR pass already supplied a customer; the
+    // round-trip would only confirm what we already know and waste a
+    // request budget on every navigation.
+    if (customer) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/customer/me", {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (cancelled) return;
+        // 401 means logged-out: leave customerState=null. Any other
+        // non-OK is treated the same — the customer can still browse.
+        if (!res.ok) return;
+        const json = await res.json();
+        const next =
+          json && typeof json === "object" && "data" in json
+            ? (json as { data: Customer }).data
+            : (json as Customer);
+        if (next && typeof next === "object") {
+          setCustomerState(next);
+        }
+      } catch {
+        // Network blip — keep current customerState.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Refresh re-fetches /api/customer/me; used after any mutation that
+  // changed the customer record (login/register/profile update).
+  const refreshCustomer = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    try {
+      const res = await fetch("/api/customer/me", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (res.status === 401) {
+        setCustomerState(null);
+        return;
+      }
+      if (!res.ok) return;
+      const json = await res.json();
+      const next =
+        json && typeof json === "object" && "data" in json
+          ? (json as { data: Customer }).data
+          : (json as Customer);
+      setCustomerState(next ?? null);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // CSRF: customer mutations echo `numu_csrf` cookie value as header
+  // for double-submit. Read just-in-time so we always send the freshest
+  // (the cookie may rotate on /api/cart roundtrip).
+  function readCsrf(): string | null {
+    if (typeof document === "undefined") return null;
+    const m = document.cookie.match(/(?:^|; )numu_csrf=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  async function postCustomer(path: string, body: unknown): Promise<unknown> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    const csrf = readCsrf();
+    if (csrf) headers["x-numu-csrf"] = csrf;
+    const res = await fetch(path, {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    let json: unknown = null;
+    try {
+      json = await res.json();
+    } catch {
+      // empty body — fine
+    }
+    return json;
+  }
+
+  async function putCustomer(path: string, body: unknown): Promise<unknown> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    const csrf = readCsrf();
+    if (csrf) headers["x-numu-csrf"] = csrf;
+    const res = await fetch(path, {
+      method: "PUT",
+      credentials: "include",
+      cache: "no-store",
+      headers,
+      body: JSON.stringify(body ?? {}),
+    });
+    try {
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  const customerActions: CustomerActions = useMemo(
+    () => ({
+      login: async (input) => {
+        const r = await postCustomer("/api/customer/login", input);
+        await refreshCustomer();
+        return r;
+      },
+      register: async (input) => {
+        const r = await postCustomer("/api/customer/register", input);
+        await refreshCustomer();
+        return r;
+      },
+      logout: async () => {
+        const r = await postCustomer("/api/customer/logout", {});
+        // Don't wait on refresh — backend cleared the cookie, so
+        // setCustomerState(null) directly avoids a redundant 401.
+        setCustomerState(null);
+        return r;
+      },
+      requestRecover: (input) =>
+        postCustomer("/api/customer/recover", input),
+      confirmReset: async (input) => {
+        const r = await postCustomer("/api/customer/reset", input);
+        // Reset clears all sessions on the backend; user must log in
+        // again. Force null so any stale state from before the reset
+        // doesn't linger.
+        setCustomerState(null);
+        return r;
+      },
+      verifyEmail: async (input) => {
+        const r = await postCustomer("/api/customer/verify-email", input);
+        await refreshCustomer();
+        return r;
+      },
+      resendVerification: (input) =>
+        postCustomer("/api/customer/resend-verification", input),
+      updateProfile: async (input) => {
+        const r = await putCustomer("/api/customer/me", input);
+        await refreshCustomer();
+        return r;
+      },
+      changePassword: (input) =>
+        putCustomer("/api/customer/me/password", input),
+      refresh: refreshCustomer,
+    }),
+    [refreshCustomer],
+  );
+
+  // ── Initial cart fetch ─────────────────────────────────────────────────
+  // GET /api/cart on mount serves two purposes:
+  //   1. Hydrates the live cart state for returning visitors so the
+  //      header cart count is accurate before any user interaction.
+  //   2. Mints the `numu_csrf` cookie (the storefront's GET /api/cart
+  //      handler emits Set-Cookie if missing). Subsequent cart-write
+  //      calls read this cookie via document.cookie and echo it as
+  //      the `x-numu-csrf` header for double-submit verification.
+  //      Without this priming round-trip, a first-Add-to-Cart 403s
+  //      because the cookie hasn't been issued yet.
+  //
+  // SSR-safe: `fetch` is a browser-only call here; we gate on `window`.
+  // Errors are swallowed — the cart context starts empty either way,
+  // and downstream actions surface their own errors.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/cart", {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as Cart;
+        if (data && typeof data === "object") {
+          setCart(data);
+        }
+      } catch {
+        // Network blip / not-yet-deployed cart endpoint. Leave the
+        // empty initial cart in place; the user can still browse.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Run once per mount; the cart endpoint is idempotent and the
+    // CSRF cookie persists across navigations within the SPA.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Request-versioning machinery ───────────────────────────────────────
   // `nextRequestId` increases on each cart mutation; `latestApplied` tracks
@@ -182,6 +441,29 @@ export function NuMuProvider({
     setCart({ ...EMPTY_CART, currency: store.currency });
   }, [store.currency]);
 
+  // Broadcast a `numu:cart:updated` CustomEvent on every cart change.
+  // Why: non-React themes (vanilla JS / Alpine / Vue islands) can't
+  // consume `useCart()`. They listen on `window` instead, which gives
+  // them the same write-then-react contract React themes get for free.
+  // The event detail mirrors the React `cart` shape so consumers don't
+  // need to re-fetch.
+  //
+  // We skip the first dispatch — the initial state is the empty
+  // placeholder before the GET /api/cart response lands, and themes
+  // that ran their own `numu:cart:fetched`-style logic on page load
+  // would otherwise see a spurious empty event right after rendering.
+  const cartFirstRender = useRef(true);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (cartFirstRender.current) {
+      cartFirstRender.current = false;
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent("numu:cart:updated", { detail: cart }),
+    );
+  }, [cart]);
+
   const cartValue = useMemo(
     () => ({
       cart,
@@ -210,14 +492,22 @@ export function NuMuProvider({
   // ── Localization with memoized Intl formatters ─────────────────────────
   // Building Intl.NumberFormat / Intl.DateTimeFormat per call is costly;
   // memoize on (locale, currency).
+  //
+  // Resilience: stores can come back from older API rows with `currency`
+  // null/empty. `Intl.NumberFormat({ currency: "" })` throws "Currency
+  // code is required with currency style", which crashes the entire
+  // render tree. Fall back to USD for the formatter so themes keep
+  // working — merchants will see prices in USD until they configure a
+  // real currency, which is a clearer signal than a blank screen.
+  const safeCurrency = (store.currency || "USD").toUpperCase();
 
   const moneyFmt = useMemo(
     () =>
       new Intl.NumberFormat(locale, {
         style: "currency",
-        currency: store.currency,
+        currency: safeCurrency,
       }),
-    [locale, store.currency],
+    [locale, safeCurrency],
   );
   const dateFmt = useMemo(
     () =>
@@ -235,19 +525,27 @@ export function NuMuProvider({
       direction: RTL_LOCALES.includes(locale) ? "rtl" : "ltr",
       translations,
       formatMoney: (amount: number, currency?: string) => {
-        if (currency && currency !== store.currency) {
+        const ccy = (currency || safeCurrency).toUpperCase();
+        if (ccy !== safeCurrency) {
           // Override-currency path is rare; pay the formatter cost only here.
-          return new Intl.NumberFormat(locale, {
-            style: "currency",
-            currency,
-          }).format(amount);
+          // Empty/invalid override falls back to the store's safeCurrency
+          // before this branch via the `||` above, so we never construct
+          // an Intl.NumberFormat with `currency: ""`.
+          try {
+            return new Intl.NumberFormat(locale, {
+              style: "currency",
+              currency: ccy,
+            }).format(amount);
+          } catch {
+            return moneyFmt.format(amount);
+          }
         }
         return moneyFmt.format(amount);
       },
       formatDate: (date: string | Date) =>
         dateFmt.format(typeof date === "string" ? new Date(date) : date),
     }),
-    [locale, translations, store.currency, moneyFmt, dateFmt],
+    [locale, translations, safeCurrency, moneyFmt, dateFmt],
   );
 
   return (
@@ -255,8 +553,10 @@ export function NuMuProvider({
       <ThemeSettingsContext.Provider value={themeSettings}>
         <LocalizationContext.Provider value={localization}>
           <CartContext.Provider value={cartValue}>
-            <CustomerContext.Provider value={customer || null}>
-              {children}
+            <CustomerContext.Provider value={customerState}>
+              <CustomerActionsContext.Provider value={customerActions}>
+                {children}
+              </CustomerActionsContext.Provider>
             </CustomerContext.Provider>
           </CartContext.Provider>
         </LocalizationContext.Provider>
