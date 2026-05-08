@@ -9,6 +9,29 @@ export interface LocalizationState {
   translations: Record<string, string>;
   formatMoney: (amount: number, currency?: string) => string;
   formatDate: (date: string | Date) => string;
+  /**
+   * Phase 3.7 — locale-aware number formatter. Routes to either
+   * Western (1234) or Arab-Indic (١٢٣٤) digits depending on
+   * `store.settings.numerals`. Themes calling formatMoney get the
+   * same digit choice automatically; this is for raw counts ("12 items").
+   */
+  formatNumber: (n: number, options?: Intl.NumberFormatOptions) => string;
+  /**
+   * Phase 3.6 — switch the active locale.
+   *
+   * Sets the `numu_locale` cookie and triggers a full page reload so
+   * the server-rendered layout picks up the new locale (the storefront
+   * resolves locale at SSR time from cookie/query). Returns once the
+   * cookie is written; the page navigation cancels any pending React
+   * work so callers don't need to await.
+   */
+  setLocale: (next: string) => void;
+  /**
+   * Phase 3.6 — list of locales the store advertises. Empty when the
+   * store hasn't configured a multi-locale catalog. Themes use this
+   * to decide whether to render the LocaleSwitcher at all.
+   */
+  availableLocales: string[];
 }
 
 export const ShopContext = createContext<Store | null>(null);

@@ -9,7 +9,13 @@ export { useCollection, useCollectionOptional } from "./hooks/useCollection";
 export { useCart } from "./hooks/useCart";
 export { useCustomer } from "./hooks/useCustomer";
 export { useThemeSettings } from "./hooks/useThemeSettings";
-export { useLocalization, useDirection, useTranslation } from "./hooks/useLocalization";
+export {
+  useLocalization,
+  useDirection,
+  useTranslation,
+  useFieldTranslation,
+  useNumberFormat,
+} from "./hooks/useLocalization";
 export { usePage } from "./hooks/usePage";
 export { useSection, useSectionOptional, SectionContext } from "./hooks/useSection";
 export { useMoney } from "./hooks/useMoney";

@@ -124,9 +124,20 @@ export function NuMuProvider({
     initialCart || { ...EMPTY_CART, currency: store.currency },
   );
   const [loading, setLoading] = useState(false);
-  const [locale, setLocale] = useState(
-    initialLocale || store.default_language || "en",
-  );
+  // Phase 3.6 — locale precedence:
+  //   1. `initialLocale` prop (storefront pages that resolved it server-side)
+  //   2. `numu_locale` cookie (client-side fallback for pages that don't
+  //      thread the prop through)
+  //   3. `store.default_language`
+  //   4. "en"
+  const [locale, setLocale] = useState(() => {
+    if (initialLocale) return initialLocale;
+    if (typeof document !== "undefined") {
+      const m = document.cookie.match(/(?:^|; )numu_locale=([^;]+)/);
+      if (m) return decodeURIComponent(m[1]);
+    }
+    return store.default_language || "en";
+  });
   const [translations] = useState(initialTranslations || {});
 
   // ── Customer state + auth actions ──────────────────────────────────────
@@ -501,29 +512,106 @@ export function NuMuProvider({
   // real currency, which is a clearer signal than a blank screen.
   const safeCurrency = (store.currency || "USD").toUpperCase();
 
-  const moneyFmt = useMemo(
-    () =>
-      new Intl.NumberFormat(locale, {
+  // Phase 3.7 — numeral system. Merchants opt into Arab-Indic
+  // digits (٠١٢٣٤) for Arabic stores via store.settings.numerals.
+  // Western (default) keeps the ASCII digits everyone's used to.
+  // We construct intl locales with the appropriate `-u-nu-<system>`
+  // extension so money + date + count formatters all stay consistent.
+  const numeralSystem =
+    ((store as unknown as { settings?: { numerals?: string } }).settings
+      ?.numerals === "arabic")
+      ? "arab"
+      : "latn";
+  const intlLocale = `${locale}-u-nu-${numeralSystem}`;
+
+  // We deliberately compute intlLocale BEFORE these memos so the
+  // numbering-system extension is part of the formatter cache key —
+  // a merchant flipping store.settings.numerals from "western" to
+  // "arabic" rebuilds the formatters on the next render rather than
+  // continuing to render Western digits from the stale cache.
+  const moneyFmt = useMemo(() => {
+    try {
+      return new Intl.NumberFormat(intlLocale, {
         style: "currency",
         currency: safeCurrency,
-      }),
-    [locale, safeCurrency],
-  );
-  const dateFmt = useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
+      });
+    } catch {
+      // Pathologic intlLocale (engine doesn't support `-u-nu-arab`
+      // for the active language) — fall back to the bare locale.
+      return new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: safeCurrency,
+      });
+    }
+  }, [intlLocale, locale, safeCurrency]);
+  const dateFmt = useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat(intlLocale, {
         year: "numeric",
         month: "long",
         day: "numeric",
-      }),
-    [locale],
-  );
+      });
+    } catch {
+      return new Intl.DateTimeFormat(locale, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    }
+  }, [intlLocale, locale]);
+
+  // Phase 3.6 — locales the store advertises. Falls back to a single-
+  // entry list (the active locale) so themes can render the
+  // LocaleSwitcher unconditionally without an extra check.
+  const availableLocales = useMemo(() => {
+    const list =
+      (store as unknown as { available_locales?: string[] }).available_locales;
+    if (Array.isArray(list) && list.length > 0) return list;
+    return [locale];
+  }, [store, locale]);
+
+  // Phase 3.6 — locale switcher. Writes the cookie + reloads so the
+  // server-rendered layout picks up the change. We prefer cookie over
+  // querystring because cookie persists across cross-page navigation
+  // without each page having to thread `?locale=ar` through every link.
+  const switchLocale = useCallback((next: string) => {
+    if (typeof document === "undefined") return;
+    if (!next) return;
+    // 1-year cookie; SameSite=Lax so it travels with same-origin nav
+    // but doesn't leak on cross-site requests. Path=/ so every page
+    // sees it.
+    document.cookie =
+      `numu_locale=${encodeURIComponent(next)}; ` +
+      `Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+    setLocale(next);
+    // Reload so SSR re-runs with the new cookie. Themes that want
+    // client-only locale swaps (no SSR re-render) can wrap their text
+    // in `useTranslation()` and skip the reload — but locale-aware
+    // SSR data (translated product names, RTL <html dir>) needs the
+    // reload to take effect.
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+  }, []);
+
+  // Default (no-options) number formatter — memoized so the formatNumber
+  // hot path doesn't construct one per call. Declared BEFORE the
+  // localization useMemo so the closure captures the resolved value.
+  const defaultNumberFmt = useMemo(() => {
+    try {
+      return new Intl.NumberFormat(intlLocale);
+    } catch {
+      return new Intl.NumberFormat(locale);
+    }
+  }, [intlLocale, locale]);
 
   const localization: LocalizationState = useMemo(
     () => ({
       locale,
       direction: RTL_LOCALES.includes(locale) ? "rtl" : "ltr",
       translations,
+      availableLocales,
+      setLocale: switchLocale,
       formatMoney: (amount: number, currency?: string) => {
         const ccy = (currency || safeCurrency).toUpperCase();
         if (ccy !== safeCurrency) {
@@ -532,7 +620,7 @@ export function NuMuProvider({
           // before this branch via the `||` above, so we never construct
           // an Intl.NumberFormat with `currency: ""`.
           try {
-            return new Intl.NumberFormat(locale, {
+            return new Intl.NumberFormat(intlLocale, {
               style: "currency",
               currency: ccy,
             }).format(amount);
@@ -544,8 +632,26 @@ export function NuMuProvider({
       },
       formatDate: (date: string | Date) =>
         dateFmt.format(typeof date === "string" ? new Date(date) : date),
+      formatNumber: (n: number, options?: Intl.NumberFormatOptions) => {
+        if (!options) return defaultNumberFmt.format(n);
+        try {
+          return new Intl.NumberFormat(intlLocale, options).format(n);
+        } catch {
+          return String(n);
+        }
+      },
     }),
-    [locale, translations, safeCurrency, moneyFmt, dateFmt],
+    [
+      locale,
+      translations,
+      safeCurrency,
+      moneyFmt,
+      dateFmt,
+      availableLocales,
+      switchLocale,
+      intlLocale,
+      defaultNumberFmt,
+    ],
   );
 
   return (
