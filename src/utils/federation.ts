@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Module Federation singleton sharing for @numu/theme-sdk.
+ * Module Federation singleton sharing for @numueg/theme-sdk.
  *
  * Why this exists:
  *   BYOT bundles (loaded at runtime as cross-origin ESM modules) need to
@@ -68,11 +68,11 @@ function globalSlot(name: string, slotKey: keyof GlobalWithSlots): symbol {
 }
 
 function sdkSlot(): symbol {
-  return globalSlot("@numu/theme-sdk:singleton", SDK_SYMBOL_KEY);
+  return globalSlot("@numueg/theme-sdk:singleton", SDK_SYMBOL_KEY);
 }
 
 function reactSlot(): symbol {
-  return globalSlot("@numu/theme-sdk:react", REACT_SYMBOL_KEY);
+  return globalSlot("@numueg/theme-sdk:react", REACT_SYMBOL_KEY);
 }
 
 export function registerSdkSingleton(sdk: SdkSingleton): void {
