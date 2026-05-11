@@ -52,6 +52,30 @@ export type { ShopWithHelpers } from "./hooks/useShop";
 export { useCurrency } from "./hooks/useCurrency";
 export type { CurrencyConfig, CurrencyState } from "./hooks/useCurrency";
 
+// Phase 8.1 — variant resolution helpers.
+export {
+  findVariantByOptions,
+  defaultVariant,
+  availableValues,
+} from "./utils/variants";
+export type { ProductOption } from "./types/entities";
+
+// Phase 7 — checkout drivers (themes own the checkout UI).
+export { useCheckout } from "./hooks/useCheckout";
+export type {
+  CheckoutApi,
+  CheckoutSessionState,
+  CheckoutStep,
+  CheckoutAddress,
+  ShippingRateOption,
+  PlaceOrderResult,
+} from "./hooks/useCheckout";
+export { useShippingRates } from "./hooks/useShippingRates";
+export type {
+  UseShippingRatesOptions,
+  UseShippingRatesState,
+} from "./hooks/useShippingRates";
+
 // Components
 export { NuMuProvider } from "./components/NuMuProvider";
 export { ProductProvider } from "./components/ProductProvider";
