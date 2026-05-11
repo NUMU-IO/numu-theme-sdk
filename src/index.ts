@@ -12,6 +12,7 @@ export { useThemeSettings } from "./hooks/useThemeSettings";
 export {
   useLocalization,
   useDirection,
+  useLocale,
   useTranslation,
   useFieldTranslation,
   useNumberFormat,
@@ -36,12 +37,20 @@ export type { SearchResults, SearchState, UseSearchOptions } from "./hooks/useSe
 export { useAnalytics } from "./hooks/useAnalytics";
 export type { AnalyticsApi, AnalyticsPayload } from "./hooks/useAnalytics";
 export { useApp } from "./hooks/useApp";
-export type { AppState } from "./hooks/useApp";
+export type {
+  AppState,
+  AppPayload,
+  AppManifestBlock,
+} from "./hooks/useApp";
 export { useWishlist } from "./hooks/useWishlist";
 export type { WishlistItem, WishlistState } from "./hooks/useWishlist";
 export { useRelatedProducts } from "./hooks/useRelatedProducts";
 export type { RelatedProductsState } from "./hooks/useRelatedProducts";
 export type { ShopWithHelpers } from "./hooks/useShop";
+
+// Phase 6 — multi-currency presentment.
+export { useCurrency } from "./hooks/useCurrency";
+export type { CurrencyConfig, CurrencyState } from "./hooks/useCurrency";
 
 // Components
 export { NuMuProvider } from "./components/NuMuProvider";

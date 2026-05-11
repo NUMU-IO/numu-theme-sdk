@@ -13,6 +13,11 @@ export function useDirection(): "ltr" | "rtl" {
   return direction;
 }
 
+export function useLocale(): string {
+  const { locale } = useLocalization();
+  return locale;
+}
+
 export function useTranslation() {
   const { translations, locale } = useLocalization();
   return {
