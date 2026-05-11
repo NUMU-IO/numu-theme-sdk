@@ -18,7 +18,7 @@
  *
  * Usage:
  *   // sections/Hero.tsx
- *   import { defineSection } from "@numu/theme-sdk";
+ *   import { defineSection } from "@numueg/theme-sdk";
  *   export default defineSection({
  *     schema: {
  *       type: "hero",

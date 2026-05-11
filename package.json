@@ -1,31 +1,68 @@
 {
-  "name": "@numu/theme-sdk",
+  "name": "@numueg/theme-sdk",
   "version": "0.1.0",
-  "description": "NUMU Theme SDK — typed hooks, interfaces, and utilities for NUMU storefront themes",
+  "description": "NUMU Theme SDK — typed hooks, components, and utilities for building NUMU storefront themes",
+  "keywords": [
+    "numu",
+    "theme",
+    "sdk",
+    "react",
+    "hooks",
+    "storefront",
+    "ecommerce",
+    "byot"
+  ],
+  "license": "MIT",
+  "author": "NUMU <hello@numueg.app>",
+  "homepage": "https://numueg.app/docs/sdk/overview",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NUMU-IO/numu-theme-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/NUMU-IO/numu-theme-sdk/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     },
     "./types": {
+      "types": "./dist/types.d.ts",
       "import": "./dist/types.mjs",
-      "require": "./dist/types.cjs",
-      "types": "./dist/types.d.ts"
+      "require": "./dist/types.cjs"
     },
     "./normalize": {
+      "types": "./dist/normalize.d.ts",
       "import": "./dist/normalize.mjs",
-      "require": "./dist/normalize.cjs",
-      "types": "./dist/normalize.d.ts"
-    }
+      "require": "./dist/normalize.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=18"
   },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run build",
+    "pack:dry": "npm pack --dry-run"
   },
   "peerDependencies": {
     "react": ">=18.0.0",
@@ -40,9 +77,5 @@
     "tsup": "^8.4.0",
     "typescript": "^5.8.0",
     "vitest": "^4.1.4"
-  },
-  "files": [
-    "dist"
-  ],
-  "license": "MIT"
+  }
 }
