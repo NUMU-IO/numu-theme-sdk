@@ -1,6 +1,7 @@
 "use client";
 import { useContext, useMemo } from "react";
 import { ShopContext } from "../contexts";
+import { useLocale } from "./useLocalization";
 import type { Store } from "../types/entities";
 
 /**
@@ -21,6 +22,11 @@ export interface ShopWithHelpers extends Store {
   /**
    * Format a path (relative or absolute) as a fully-qualified URL on
    * this store's domain. No-ops when given an already-absolute URL.
+   *
+   * Phase 6 — when the active locale is non-default and the store
+   * has opted into locale URL prefixes, the path is prefixed with
+   * `/{locale}/` (e.g. `/ar/products/foo`). Already-prefixed paths
+   * are left alone so calling `formatUrl(formatUrl(...))` is safe.
    */
   formatUrl(path: string): string;
 }
@@ -55,18 +61,47 @@ function resolveDomain(store: Store): string {
 export function useShop(): ShopWithHelpers {
   const ctx = useContext(ShopContext);
   if (!ctx) throw new Error("useShop must be used within NuMuProvider");
+  const locale = useLocale();
 
   return useMemo(() => {
     const domain = resolveDomain(ctx);
+    const settings = (ctx as Store & { settings?: Record<string, unknown> })
+      .settings;
+    const localePrefixEnabled = Boolean(
+      settings && (settings as { locale_url_prefix_enabled?: boolean }).locale_url_prefix_enabled,
+    );
+    const defaultLocale = ctx.default_language || "en";
+    // List of locales that get a URL prefix. Defaults to "everything
+    // except the default" — but a store can opt into `["ar", "en"]`
+    // (prefix even the default) if it wants a fully prefixed URL
+    // scheme like Shopify does for markets.
+    const prefixedLocales =
+      (settings as { locale_url_prefix_locales?: string[] } | undefined)
+        ?.locale_url_prefix_locales || null;
+    const shouldPrefix = (l: string): boolean => {
+      if (!localePrefixEnabled) return false;
+      if (prefixedLocales) return prefixedLocales.includes(l);
+      return l !== defaultLocale;
+    };
+
     const formatUrl = (path: string): string => {
       if (!path) return `${DEFAULT_PROTOCOL}://${domain}/`;
       // Already absolute? Hand back as-is.
       if (/^https?:\/\//i.test(path)) return path;
       // Protocol-relative — assume same protocol as the host.
       if (path.startsWith("//")) return `${DEFAULT_PROTOCOL}:${path}`;
-      const normalized = path.startsWith("/") ? path : `/${path}`;
+      let normalized = path.startsWith("/") ? path : `/${path}`;
+      if (locale && shouldPrefix(locale)) {
+        // Idempotent: don't double-prefix if the caller already
+        // gave us a /{locale}/... path.
+        const prefix = `/${locale}/`;
+        const root = `/${locale}`;
+        if (normalized !== root && !normalized.startsWith(prefix)) {
+          normalized = `${root}${normalized}`;
+        }
+      }
       return `${DEFAULT_PROTOCOL}://${domain}${normalized}`;
     };
     return { ...ctx, domain, formatUrl };
-  }, [ctx]);
+  }, [ctx, locale]);
 }
