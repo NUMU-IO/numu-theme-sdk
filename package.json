@@ -3,21 +3,21 @@
   "version": "0.1.0",
   "description": "NUMU Theme SDK — typed hooks, interfaces, and utilities for NUMU storefront themes",
   "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
+  "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
+      "import": "./dist/index.mjs",
       "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
     },
     "./types": {
-      "import": "./dist/types.js",
+      "import": "./dist/types.mjs",
       "require": "./dist/types.cjs",
       "types": "./dist/types.d.ts"
     },
     "./normalize": {
-      "import": "./dist/normalize.js",
+      "import": "./dist/normalize.mjs",
       "require": "./dist/normalize.cjs",
       "types": "./dist/normalize.d.ts"
     }

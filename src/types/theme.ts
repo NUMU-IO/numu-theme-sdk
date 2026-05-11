@@ -64,8 +64,54 @@ export interface BlockSchema {
   settings: SettingDefinition[];
 }
 
+/**
+ * Setting types the V3 customizer renders. Themes can declare any
+ * string here; unknown types fall through to a plain text input. The
+ * union below documents the canonical set so theme authors get
+ * autocomplete and TypeScript errors on typos.
+ */
+export type SettingType =
+  | "text"
+  | "textarea"
+  | "richtext"
+  | "number"
+  | "range"
+  | "color"
+  | "checkbox"
+  | "select"
+  | "radio"
+  | "font"
+  | "image_picker"
+  | "url"
+  | "product"
+  | "collection"
+  | "header"
+  | "paragraph"
+  | "html"
+  | "date"
+  | "time"
+  | "video_picker"
+  | "color_scheme"
+  | "page_picker"
+  | "blog_picker"
+  | "link_list_picker"
+  | "variant_picker"
+  | "file_upload";
+
+/**
+ * `visible_if` — conditional visibility expression evaluated against
+ * sibling settings in the same schema. Two flavors:
+ *
+ *   - String DSL: `"settings.show_button == true && settings.layout != 'minimal'"`
+ *   - Object form: `{ show_button: true, layout: ["full", "split"] }`
+ *
+ * Evaluator lives in the merchant hub: any setting whose expression is
+ * falsy is skipped from the rendered form.
+ */
+export type VisibleIf = string | Record<string, unknown>;
+
 export interface SettingDefinition {
-  type: string;
+  type: SettingType | (string & {}); // unions stay open for forward-compat
   id: string;
   label: string;
   label_ar?: string;
@@ -78,10 +124,18 @@ export interface SettingDefinition {
   max?: number;
   step?: number;
   unit?: string;
+  /** Hide this setting unless the expression evaluates truthy. */
+  visible_if?: VisibleIf;
 }
 
 export interface SectionPreset {
   name: string;
+  /** Localized names so the Add Section dialog reads in the editor's
+   * current locale. Falls back to `name` when the locale is missing. */
+  locales?: {
+    en?: { name?: string };
+    ar?: { name?: string };
+  };
   settings?: Record<string, any>;
   blocks?: { type: string; settings?: Record<string, any> }[];
 }
