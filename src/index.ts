@@ -52,13 +52,31 @@ export type { ShopWithHelpers } from "./hooks/useShop";
 export { useCurrency } from "./hooks/useCurrency";
 export type { CurrencyConfig, CurrencyState } from "./hooks/useCurrency";
 
-// Phase 8.1 — variant resolution helpers.
+// Phase 8.1 — variant resolution helpers + selection hook.
 export {
   findVariantByOptions,
   defaultVariant,
   availableValues,
 } from "./utils/variants";
+export { useVariantSelection } from "./hooks/useVariantSelection";
+export type { UseVariantSelection } from "./hooks/useVariantSelection";
 export type { ProductOption } from "./types/entities";
+
+// Phase 8.3 — gift card balance lookup for checkout.
+export { useGiftCardBalance } from "./hooks/useGiftCardBalance";
+export type {
+  GiftCardBalance,
+  UseGiftCardBalance,
+} from "./hooks/useGiftCardBalance";
+
+// Phase 8.5 — reorder / buy-again.
+export { useReorder } from "./hooks/useReorder";
+export type {
+  ReorderResult,
+  ReorderSkipReason,
+  ReorderSkippedItem,
+  UseReorder,
+} from "./hooks/useReorder";
 
 // Phase 7 — checkout drivers (themes own the checkout UI).
 export { useCheckout } from "./hooks/useCheckout";
