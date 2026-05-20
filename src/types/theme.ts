@@ -42,6 +42,47 @@ export interface ExternalThemeMetadata {
   section_schemas?: Record<string, any> | null;
 }
 
+/**
+ * Live mount handle returned by a V3 theme bundle's `mount(el, ctx)`.
+ *
+ * Two shapes accepted by the host:
+ *
+ *   1. **Legacy** — `mount(el, ctx): () => void`
+ *      The bundle returns only a cleanup function. Every host-side
+ *      themeSettings change forces a full unmount + remount, which is
+ *      expensive but always correct. Hosts must keep supporting this
+ *      for older bundles built against pre-0.2 SDK versions.
+ *
+ *   2. **Wave 3+** — `mount(el, ctx): MountResult`
+ *      The bundle returns an object with `cleanup` + an `applyDraft`
+ *      method that takes a fresh `ThemeSettingsV3` and re-renders the
+ *      bundle's React tree in-place (no createRoot churn). This is the
+ *      fast path used by the customizer's live preview — a keystroke
+ *      in the dashboard becomes a single React reconciliation in the
+ *      iframe, typically < 16 ms.
+ *
+ * Hosts feature-detect by checking `typeof handle === "function"`
+ * (legacy) vs `typeof handle === "object" && handle.cleanup`
+ * (Wave 3+). Theme authors should prefer the MountResult shape — the
+ * `numuTheme` plugin's typings will flag the missing applyDraft once
+ * the editor's live-preview path requires it.
+ */
+export interface MountResult {
+  /** Unmount the bundle's React tree and release any resources. */
+  cleanup: () => void;
+  /**
+   * Apply a fresh draft (e.g. from the customizer iframe's
+   * `numu:theme:update` postMessage) without tearing down the tree.
+   * Implementations typically forward the value to a useState setter
+   * inside a wrapper that renders `<NuMuProvider themeSettings={...}>`.
+   *
+   * Safe to call repeatedly; the bundle is expected to dedup
+   * reference-equal calls on its own. Returns nothing — selection /
+   * navigation echo back via postMessage.
+   */
+  applyDraft: (next: ThemeSettingsV3) => void;
+}
+
 /** Section schema for customizer form generation */
 export interface SectionSchema {
   type: string;
@@ -84,7 +125,9 @@ export type SettingType =
   | "image_picker"
   | "url"
   | "product"
+  | "product_list"
   | "collection"
+  | "collection_list"
   | "header"
   | "paragraph"
   | "html"

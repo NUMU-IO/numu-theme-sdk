@@ -45,6 +45,11 @@
       "import": "./dist/normalize.mjs",
       "require": "./dist/normalize.cjs"
     },
+    "./v2-compat": {
+      "types": "./dist/v2-compat.d.ts",
+      "import": "./dist/v2-compat.mjs",
+      "require": "./dist/v2-compat.cjs"
+    },
     "./package.json": "./package.json"
   },
   "sideEffects": false,
@@ -61,6 +66,9 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:smoke": "cross-env RUN_SMOKE=1 vitest run",
     "prepublishOnly": "npm run typecheck && npm run build",
     "pack:dry": "npm pack --dry-run"
   },
@@ -72,6 +80,9 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "@testing-library/react": "^16.1.0",
+    "cross-env": "^7.0.3",
+    "happy-dom": "^15.11.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tsup": "^8.4.0",

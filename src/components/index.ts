@@ -7,3 +7,5 @@ export { Link } from "./Link";
 export { AddToCartButton } from "./AddToCartButton";
 export { Section, Block } from "./Section";
 export { Form } from "./Form";
+export { EditableText, EditableImage } from "./Editable";
+export type { EditableTextProps, EditableImageProps } from "./Editable";

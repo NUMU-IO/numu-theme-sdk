@@ -42,3 +42,12 @@ export const CustomerContext = createContext<Customer | null>(null);
 export const ThemeSettingsContext = createContext<ThemeSettingsV3 | null>(null);
 export const LocalizationContext = createContext<LocalizationState | null>(null);
 export const PageContext = createContext<Page | null>(null);
+/**
+ * Wave 5 — currently-active template identifier. Mirrors the key inside
+ * `themeSettings.templates.<currentTemplate>` so themes can dispatch
+ * which section list to render. Hosts set this via `NuMuProvider`'s
+ * `currentTemplate` prop (which is passed in by the storefront page
+ * component — `app/(store)/[subdomain]/product/[id]/page.tsx` passes
+ * "product", `cart/page.tsx` passes "cart", etc.). Falls back to "home".
+ */
+export const CurrentTemplateContext = createContext<string>("home");
