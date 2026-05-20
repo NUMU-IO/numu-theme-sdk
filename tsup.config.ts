@@ -5,6 +5,7 @@ export default defineConfig({
     index: "src/index.ts",
     types: "src/types/index.ts",
     normalize: "src/utils/normalize.ts",
+    "v2-compat": "src/v2-compat.ts",
   },
   format: ["esm", "cjs"],
   dts: true,
