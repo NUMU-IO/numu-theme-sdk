@@ -83,9 +83,22 @@ interface NumuAttributionBridge {
   get(): AttributionEnvelope | null;
 }
 
+interface NumuCustomerBridge {
+  /** Authenticated customer's UUID, or null when the visitor is a guest. */
+  getId(): string | null;
+}
+
 declare global {
   interface Window {
     __numu_attribution?: NumuAttributionBridge;
+    /**
+     * Optional bridge installed by the host storefront's customer
+     * provider. When set, the SDK includes ``customer_id`` on
+     * funnel-step events so the backend can record touches against
+     * the authenticated customer immediately instead of waiting for
+     * the next checkout to backfill.
+     */
+    __numu_customer?: NumuCustomerBridge;
   }
 }
 
@@ -93,6 +106,15 @@ function readAttribution(): AttributionEnvelope | null {
   if (typeof window === "undefined") return null;
   try {
     return window.__numu_attribution?.get?.() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function readCustomerId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.__numu_customer?.getId?.() ?? null;
   } catch {
     return null;
   }
@@ -156,6 +178,12 @@ export function dispatchAnalyticsEvent(
   //    fingerprint, step, step_data, attribution). Non-funnel events
   //    keep the loose shape for the pixel-fanout layer.
   const step = EVENT_TO_FUNNEL_STEP[eventName] ?? null;
+  // Lifting customer_id once so we don't read the bridge twice per
+  // dispatch. Absent (null) for guests / unauthenticated visitors;
+  // present for logged-in customers whose journey rows should land
+  // with customer_id set immediately instead of waiting for the
+  // next checkout to backfill.
+  const customerId = readCustomerId();
   const body: Record<string, unknown> = step
     ? {
         event_id: crypto.randomUUID(),
@@ -168,12 +196,14 @@ export function dispatchAnalyticsEvent(
             ? document.referrer
             : undefined,
         attribution: readAttribution() ?? undefined,
+        customer_id: customerId ?? undefined,
       }
     : {
         event: eventName,
         payload,
         ts: Date.now(),
         attribution: readAttribution() ?? undefined,
+        customer_id: customerId ?? undefined,
       };
 
   void (async () => {

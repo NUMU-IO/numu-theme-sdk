@@ -26,6 +26,7 @@ declare global {
 
 interface AttributionWindow {
   __numu_attribution?: { get(): unknown };
+  __numu_customer?: { getId(): string | null };
   __numu_session_fp?: string;
 }
 
@@ -70,6 +71,7 @@ describe("dispatchAnalyticsEvent", () => {
     const w = window as unknown as AttributionWindow;
     delete w.__numu_session_fp;
     delete w.__numu_attribution;
+    delete w.__numu_customer;
   });
 
   afterEach(() => {
@@ -202,6 +204,55 @@ describe("dispatchAnalyticsEvent", () => {
       (fetchSpy.mock.calls[0] as [string, RequestInit])[1].body as string,
     );
     expect(body.attribution).toBeUndefined();
+  });
+
+  it("includes customer_id when the host storefront installs the bridge", async () => {
+    (window as unknown as AttributionWindow).__numu_customer = {
+      getId: () => "11111111-2222-3333-4444-555555555555",
+    };
+
+    dispatchAnalyticsEvent("add_to_cart", { product_id: "abc" });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const body = JSON.parse(
+      (fetchSpy.mock.calls[0] as [string, RequestInit])[1].body as string,
+    );
+    expect(body.customer_id).toBe("11111111-2222-3333-4444-555555555555");
+  });
+
+  it("omits customer_id when the host bridge returns null (guest visitor)", async () => {
+    (window as unknown as AttributionWindow).__numu_customer = {
+      getId: () => null,
+    };
+
+    dispatchAnalyticsEvent("add_to_cart");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const body = JSON.parse(
+      (fetchSpy.mock.calls[0] as [string, RequestInit])[1].body as string,
+    );
+    // Absent rather than null in the wire body — matches the
+    // attribution envelope's "no signal" semantic.
+    expect(body.customer_id).toBeUndefined();
+  });
+
+  it("survives a thrown customer bridge without crashing", async () => {
+    (window as unknown as AttributionWindow).__numu_customer = {
+      getId: () => {
+        throw new Error("customer bridge broken");
+      },
+    };
+
+    expect(() => dispatchAnalyticsEvent("page_view")).not.toThrow();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const body = JSON.parse(
+      (fetchSpy.mock.calls[0] as [string, RequestInit])[1].body as string,
+    );
+    expect(body.customer_id).toBeUndefined();
   });
 
   it("still dispatches the window CustomEvent in parallel", () => {
