@@ -1,5 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
+import {
+  LocalizationContext,
+  NavigationContext,
+  type MenuItemData,
+} from "../contexts";
 
 /**
  * Menu item, modeled on Shopify's `linklists` entries.
@@ -30,35 +35,119 @@ export interface NavigationState {
 const cache = new Map<string, NavigationItem[]>();
 
 /**
+ * Resolve a bilingual label to a single display string for `locale`,
+ * degrading gracefully: active locale → English → Arabic → first value.
+ */
+function localizeLabel(
+  label: Record<string, string> | undefined,
+  locale: string,
+): string {
+  if (!label) return "";
+  return (
+    label[locale] ||
+    label.en ||
+    label.ar ||
+    Object.values(label).find((v) => !!v) ||
+    ""
+  );
+}
+
+/** Map the backend item `type` onto the SDK's `resource_type` union. */
+function mapResourceType(type?: string | null): NavigationItem["resource_type"] {
+  switch (type) {
+    case "product":
+      return "product";
+    case "collection":
+      return "collection";
+    case "page":
+      return "page";
+    case "blog":
+      return "blog";
+    case "article":
+      return "article";
+    case "http":
+    case "url":
+      return "url";
+    default:
+      return null;
+  }
+}
+
+/** Localize a raw (bilingual) menu item tree into display NavigationItems. */
+function toNavigationItem(raw: MenuItemData, locale: string): NavigationItem {
+  return {
+    id: raw.id,
+    title: localizeLabel(raw.label, locale),
+    url: raw.url || "/",
+    resource_type: mapResourceType(raw.type),
+    resource_handle: raw.resource_id ?? null,
+    children: (raw.children ?? []).map((child) =>
+      toNavigationItem(child, locale),
+    ),
+  };
+}
+
+/**
  * Fetch a merchant-managed nav menu by handle.
  *
- * Backend contract: GET /api/storefront/navigation/{handle} →
- *   { items: NavigationItem[] }
- * On 404 / network error / non-OK response the hook returns an empty
- * list — the calling theme decides whether to render nothing or show
- * a fallback. We deliberately don't throw because a missing menu is
- * a soft failure (theme should still render).
- *
- * Why no SSR pre-fetch:
- *   The storefront's [domain]/layout doesn't currently inject menus
- *   into `page.data.navigation`. Once it does, themes can pass an
- *   `initialItems` prop (added below) and skip the round-trip; until
- *   then we fetch on mount with a process-local cache so the same
- *   handle doesn't fetch twice per session.
+ * Resolution order (Phase 2.4):
+ *   1. Host-injected menus — the storefront resolves menus server-side
+ *      (`GET /storefront/store/{id}/menus`) and injects them via
+ *      `NuMuProvider`'s `navigation` prop → `NavigationContext`. When the
+ *      handle is present we localize + return it synchronously, no fetch.
+ *      A non-empty map that lacks the handle means "no such menu" → [].
+ *   2. `options.initialItems` — a theme that pre-fetched its own list.
+ *   3. Client fetch of `GET /api/storefront/navigation/{handle}` — the
+ *      legacy fallback for hosts that inject nothing. On 404 / network
+ *      error the hook resolves to [] (a missing menu is a soft failure;
+ *      the theme falls back to its own DEFAULT_NAV).
  */
 export function useNavigation(
   handle: string,
   options?: { initialItems?: NavigationItem[] },
 ): NavigationState {
+  // NavigationContext defaults to {} outside a provider; LocalizationContext
+  // is read defensively (no throw) so useNavigation works even if a theme
+  // calls it above NuMuProvider in a test harness.
+  const navMap = useContext(NavigationContext);
+  const localization = useContext(LocalizationContext);
+  const locale = localization?.locale ?? "en";
+
+  const hostProvidedAny = !!navMap && Object.keys(navMap).length > 0;
+  const rawItems = handle ? navMap?.[handle] : undefined;
+
+  // Localized view of host-injected items. `null` means "host wired no
+  // navigation at all" → fall through to initialItems / fetch. `[]` means
+  // the host IS authoritative but this handle is absent/empty → render
+  // nothing (no doomed fetch).
+  const hostItems = useMemo<NavigationItem[] | null>(() => {
+    if (rawItems) return rawItems.map((it) => toNavigationItem(it, locale));
+    if (hostProvidedAny) return [];
+    return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawItems, hostProvidedAny, locale]);
+
   const [items, setItems] = useState<NavigationItem[]>(
-    options?.initialItems ?? cache.get(handle) ?? [],
+    hostItems ?? options?.initialItems ?? cache.get(handle) ?? [],
   );
   const [loading, setLoading] = useState(
-    !options?.initialItems && !cache.has(handle),
+    hostItems === null && !options?.initialItems && !cache.has(handle),
   );
   const [error, setError] = useState<Error | null>(null);
 
+  // Keep items in sync with host-injected menus (locale switch, or the
+  // map arriving after first paint). When the host is authoritative we
+  // never fetch.
   useEffect(() => {
+    if (hostItems === null) return;
+    setItems(hostItems);
+    setLoading(false);
+    setError(null);
+  }, [hostItems]);
+
+  useEffect(() => {
+    // Host-injected menus win — skip the network entirely.
+    if (hostItems !== null) return;
     if (typeof window === "undefined") return;
     if (!handle) {
       setItems([]);
@@ -108,10 +197,10 @@ export function useNavigation(
     return () => {
       cancelled = true;
     };
-    // Deliberate: re-run when `handle` changes; `initialItems` change
-    // shouldn't refetch (theme passes it once at mount).
+    // Deliberate: re-run when `handle` or host-injection state changes;
+    // `initialItems` change shouldn't refetch (theme passes it once).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handle]);
+  }, [handle, hostItems === null]);
 
   return { items, loading, error };
 }

@@ -16,6 +16,18 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "happy-dom",
+    // Unit tests must never reach the network. applyGlobalStyleTokens
+    // injects webfont <link>s; without this happy-dom tries to fetch the
+    // Google-Fonts stylesheet (noisy stack traces + CI flakiness).
+    environmentOptions: {
+      happyDOM: {
+        settings: {
+          disableCSSFileLoading: true,
+          disableJavaScriptFileLoading: true,
+          handleDisabledFileLoadingAsSuccess: true,
+        },
+      },
+    },
     include: ["src/__tests__/**/*.test.{ts,tsx}"],
     setupFiles: [
       // Workspace matchers (toFailContractClause / toCiteCaveat). Will

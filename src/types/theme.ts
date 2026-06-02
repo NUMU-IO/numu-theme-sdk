@@ -32,6 +32,13 @@ export interface BlockInstance {
   type: string;
   settings: Record<string, any>;
   disabled?: boolean;
+  /** Nested child blocks (blocks-in-blocks): a block can hold its own
+   *  block container — e.g. a footer "column" holding "link" blocks, or
+   *  a mega-menu. Same shape as a section's block container, so the
+   *  render/editor walk is uniform at any depth. Optional + absent on
+   *  leaf blocks, so pre-nesting payloads load unchanged. */
+  blocks?: Record<string, BlockInstance>;
+  block_order?: string[];
 }
 
 export interface ExternalThemeMetadata {
@@ -103,7 +110,20 @@ export interface BlockSchema {
   name_ar?: string;
   limit?: number;
   settings: SettingDefinition[];
+  /** Child block types this block accepts (recursive). When present,
+   *  the customizer lets merchants add/remove/reorder these inside the
+   *  block, up to `max_blocks`. Enables footer columns, mega-menus,
+   *  multi-column layouts. The host caps practical nesting depth
+   *  (MAX_BLOCK_DEPTH). */
+  blocks?: BlockSchema[];
+  max_blocks?: number;
 }
+
+/** Max nesting depth the customizer allows for blocks-in-blocks. Depth
+ *  1 = a top-level block in a section; a block at this depth can't take
+ *  children. Generous (below Shopify's 8) and cheap to raise. Kept in
+ *  sync with the merchant hub's MAX_BLOCK_DEPTH. */
+export const MAX_BLOCK_DEPTH = 5;
 
 /**
  * Setting types the V3 customizer renders. Themes can declare any
@@ -139,7 +159,9 @@ export type SettingType =
   | "blog_picker"
   | "link_list_picker"
   | "variant_picker"
-  | "file_upload";
+  | "file_upload"
+  | "icon_picker"
+  | "icon";
 
 /**
  * `visible_if` — conditional visibility expression evaluated against
@@ -171,6 +193,15 @@ export interface SettingDefinition {
   visible_if?: VisibleIf;
 }
 
+export interface PresetBlock {
+  type: string;
+  settings?: Record<string, any>;
+  /** Nested starter blocks materialized when the preset is applied
+   *  (recursive). Lets a preset ship, e.g., a footer column already
+   *  populated with link blocks. */
+  blocks?: PresetBlock[];
+}
+
 export interface SectionPreset {
   name: string;
   /** Localized names so the Add Section dialog reads in the editor's
@@ -180,7 +211,7 @@ export interface SectionPreset {
     ar?: { name?: string };
   };
   settings?: Record<string, any>;
-  blocks?: { type: string; settings?: Record<string, any> }[];
+  blocks?: PresetBlock[];
 }
 
 /** Section component props */
@@ -194,4 +225,9 @@ export interface SectionProps {
 /** Block component props */
 export interface BlockProps {
   settings: Record<string, any>;
+  /** Child block instances when this block nests others (footer column,
+   *  mega-menu, …). Mirror the section→block render: map `blockOrder`
+   *  and look each id up in `blocks`, wrapping each child in `<Block>`. */
+  blocks?: Record<string, BlockInstance>;
+  blockOrder?: string[];
 }

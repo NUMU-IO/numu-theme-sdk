@@ -15,6 +15,7 @@ import {
   LocalizationContext,
   CurrentTemplateContext,
   PageContext,
+  NavigationContext,
 } from "../contexts";
 import {
   CustomerActionsContext,
@@ -22,7 +23,7 @@ import {
 } from "../contexts/customer-actions";
 import type { Store, Cart, Customer } from "../types/entities";
 import type { ThemeSettingsV3 } from "../types/theme";
-import type { LocalizationState } from "../contexts";
+import type { LocalizationState, MenuItemData } from "../contexts";
 
 const RTL_LOCALES = ["ar", "he", "fa", "ur"];
 
@@ -55,6 +56,15 @@ interface NuMuProviderProps {
    * read this slot.
    */
   initialCollections?: import("../types/entities").Collection[];
+  /**
+   * Phase 2.4 — store navigation menus keyed by handle (`main-menu`,
+   * `footer`, …), resolved server-side by the host and injected so a
+   * theme's `useNavigation(handle)` resolves synchronously without a
+   * client round-trip. Omit for hosts/themes that don't wire menus —
+   * `useNavigation` then falls back to its own fetch or the theme's
+   * `DEFAULT_NAV`.
+   */
+  navigation?: Record<string, MenuItemData[]>;
   children: ReactNode;
 }
 
@@ -145,6 +155,7 @@ export function NuMuProvider({
   currentTemplate = "home",
   initialProducts,
   initialCollections,
+  navigation,
   children,
 }: NuMuProviderProps) {
   // Synthesise a Page record so `useProducts()` and `useCollections()`
@@ -708,7 +719,9 @@ export function NuMuProvider({
               <CartContext.Provider value={cartValue}>
                 <CustomerContext.Provider value={customerState}>
                   <CustomerActionsContext.Provider value={customerActions}>
-                    {children}
+                    <NavigationContext.Provider value={navigation ?? {}}>
+                      {children}
+                    </NavigationContext.Provider>
                   </CustomerActionsContext.Provider>
                 </CustomerContext.Provider>
               </CartContext.Provider>
