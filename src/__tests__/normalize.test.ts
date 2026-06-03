@@ -125,4 +125,67 @@ describe('resolveThemeSettings', () => {
       expect(result.external_theme?.bundle_url).toBe('https://cdn.example.com/theme.js');
     });
   });
+
+  describe('V3 nested-block preservation', () => {
+    // The dual-read passthrough must NOT strip nested blocks — the editor +
+    // storefront depend on blocks-in-blocks surviving the read. This locks
+    // the contract: if a future normalize step starts deep-walking V3, this
+    // catches any block loss.
+    it('returns a deeply-nested V3 payload intact', () => {
+      const v3 = {
+        schema_version: 3,
+        theme_id: 'bon-younes-v3',
+        global_settings: {},
+        section_groups: {},
+        templates: {
+          home: {
+            name: 'Home',
+            order: ['footer_1'],
+            sections: {
+              footer_1: {
+                type: 'by-footer',
+                settings: {},
+                block_order: ['col_1'],
+                blocks: {
+                  col_1: {
+                    type: 'column',
+                    settings: { heading: 'Shop' },
+                    block_order: ['link_1'],
+                    blocks: {
+                      link_1: {
+                        type: 'link',
+                        settings: { url: '/products', label: 'All' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+      const result = resolveThemeSettings(v3 as unknown as Record<string, unknown>);
+      const footer = result.templates.home.sections.footer_1 as Record<string, any>;
+      const col = footer.blocks.col_1;
+      expect(col.type).toBe('column');
+      expect(col.block_order).toEqual(['link_1']);
+      const link = col.blocks.link_1;
+      expect(link.type).toBe('link');
+      expect(link.settings.url).toBe('/products');
+    });
+  });
+
+  describe('V1 products normalization (parity with backend mapper)', () => {
+    it('maps a products block into a featured-products section', () => {
+      const legacy = {
+        theme: { base_theme: 'bazar' },
+        products: { collection_id: 'abc', limit: 8 },
+      };
+      const result = resolveThemeSettings(legacy as any);
+      expect(result.templates.home.sections.featured_1).toBeDefined();
+      expect(result.templates.home.sections.featured_1.type).toBe(
+        'featured-products',
+      );
+    });
+  });
 });

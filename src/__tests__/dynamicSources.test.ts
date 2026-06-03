@@ -189,3 +189,84 @@ describe("resolveSettingsMap", () => {
     expect(resolveSettingsMap(null as unknown as object, {})).toBeNull();
   });
 });
+
+// ── Phase 5.4 extended coverage ──────────────────────────────────────────
+
+describe("resolveSourcePath — extended product fields", () => {
+  it("resolves product.slug", () => {
+    expect(resolveSourcePath("product.slug", { product })).toBe("crimson-tee");
+  });
+  it("resolves product.first_image_url (alias of product.image)", () => {
+    expect(resolveSourcePath("product.first_image_url", { product })).toBe(
+      "https://cdn/img-1.jpg",
+    );
+  });
+  it("returns null for product.sku when the product has no variants", () => {
+    const bare: Product = { ...product, variants: [] };
+    expect(resolveSourcePath("product.sku", { product: bare })).toBeNull();
+  });
+  it("returns '' for product.description when description is absent", () => {
+    const noDesc: Product = { ...product, description: undefined };
+    expect(resolveSourcePath("product.description", { product: noDesc })).toBe("");
+    expect(
+      resolveSourcePath("product.description_snippet", { product: noDesc }),
+    ).toBe("");
+  });
+  it("returns null for product.image when there are no images", () => {
+    const noImg: Product = { ...product, images: [] };
+    expect(resolveSourcePath("product.image", { product: noImg })).toBeNull();
+  });
+});
+
+describe("resolveSourcePath — extended collection fields", () => {
+  it("resolves collection.slug", () => {
+    expect(resolveSourcePath("collection.slug", { collection })).toBe("summer");
+  });
+  it("resolves collection.product_count", () => {
+    expect(resolveSourcePath("collection.product_count", { collection })).toBe(12);
+  });
+  it("resolves collection.description (full) and description_snippet", () => {
+    expect(resolveSourcePath("collection.description", { collection })).toBe(
+      "Hot weather essentials.",
+    );
+    expect(
+      resolveSourcePath("collection.description_snippet", { collection }),
+    ).toBe("Hot weather essentials.");
+  });
+  it("returns null for product_count when the field is absent", () => {
+    const noCount: Collection = { ...collection, product_count: undefined as never };
+    expect(
+      resolveSourcePath("collection.product_count", { collection: noCount }),
+    ).toBeNull();
+  });
+});
+
+describe("resolveSettingsMap — collection context + passthrough shapes", () => {
+  it("resolves collection refs and leaves image-picker objects untouched", () => {
+    const out = resolveSettingsMap(
+      {
+        title: { __numu_source: "collection.title" },
+        count: { __numu_source: "collection.product_count" },
+        // image-picker stored shape — NOT a dynamic ref.
+        banner: { url: "b.png", alt: "banner" },
+      },
+      { collection },
+    );
+    expect(out).toEqual({
+      title: "Summer Drop",
+      count: 12,
+      banner: { url: "b.png", alt: "banner" },
+    });
+  });
+});
+
+describe("resolveDynamicValue — non-source objects pass through", () => {
+  it("returns an image-picker { url, alt } object unchanged", () => {
+    const img = { url: "x.png", alt: "x" };
+    expect(resolveDynamicValue(img, { product })).toEqual(img);
+  });
+  it("passes numbers and booleans through unchanged", () => {
+    expect(resolveDynamicValue(42, {})).toBe(42);
+    expect(resolveDynamicValue(true, {})).toBe(true);
+  });
+});

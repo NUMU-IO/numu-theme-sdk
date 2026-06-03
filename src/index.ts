@@ -1,6 +1,7 @@
 // Types
 export type { Store, Product, ProductImage, ProductVariant, Collection, Cart, CartItem, Customer, Order, OrderItem, Address, Page } from "./types/entities";
-export type { ThemeSettingsV3, PageTemplate, SectionGroup, SectionInstance, BlockInstance, ExternalThemeMetadata, MountResult, SectionSchema, BlockSchema, SettingDefinition, SectionPreset, SectionProps, BlockProps } from "./types/theme";
+export type { ThemeSettingsV3, PageTemplate, SectionGroup, SectionInstance, BlockInstance, ExternalThemeMetadata, MountResult, SectionSchema, BlockSchema, SettingDefinition, SectionPreset, PresetBlock, SectionProps, BlockProps } from "./types/theme";
+export { MAX_BLOCK_DEPTH } from "./types/theme";
 
 // Hooks
 export { useShop } from "./hooks/useShop";
@@ -95,6 +96,15 @@ export type {
   UseShippingRatesState,
 } from "./hooks/useShippingRates";
 
+// Bundle entry helper — hoists the catalog/global-style/navigation/
+// live-preview wiring every theme's `mount()` needs into one place.
+export { mountTheme } from "./mount";
+export type {
+  ThemeMountContext,
+  ThemeMountPage,
+  ThemeRenderArgs,
+} from "./mount";
+
 // Components
 export { NuMuProvider } from "./components/NuMuProvider";
 export { ProductProvider } from "./components/ProductProvider";
@@ -123,6 +133,12 @@ export type { LocaleSwitcherProps } from "./components/LocaleSwitcher";
 // instead of just whole sections.
 export { EditableText, EditableImage } from "./components/Editable";
 export type { EditableTextProps, EditableImageProps } from "./components/Editable";
+
+// Shared icon set for the `icon_picker` setting type — themes render a
+// merchant-picked icon by name, with identical glyphs in the editor grid
+// and on the storefront.
+export { Icon, IconMap, ICON_NAMES } from "./components/Icon";
+export type { IconProps } from "./components/Icon";
 
 // Utils
 export { resolveThemeSettings } from "./utils/normalize";
@@ -162,6 +178,8 @@ export type {
   DefineBlockInput,
 } from "./utils/defineSection";
 export { assetUrl } from "./utils/assetUrl";
+// Phase 3.5 — global settings (colors/fonts/layout) → CSS custom properties.
+export { applyGlobalStyleTokens, resolveFontStack } from "./utils/styleTokens";
 export {
   flattenMessages,
   pickTranslations,
@@ -170,4 +188,5 @@ export {
 export type { LocaleMessages, LocaleBundle } from "./utils/locales";
 
 // Contexts (for advanced use)
-export { ShopContext, ProductContext, CollectionContext, CartContext, CustomerContext, ThemeSettingsContext, LocalizationContext, PageContext } from "./contexts";
+export { ShopContext, ProductContext, CollectionContext, CartContext, CustomerContext, ThemeSettingsContext, LocalizationContext, PageContext, NavigationContext } from "./contexts";
+export type { MenuItemData } from "./contexts";
