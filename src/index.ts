@@ -1,6 +1,7 @@
 // Types
 export type { Store, Product, ProductImage, ProductVariant, Collection, Cart, CartItem, Customer, Order, OrderItem, Address, Page } from "./types/entities";
-export type { ThemeSettingsV3, PageTemplate, SectionGroup, SectionInstance, BlockInstance, ExternalThemeMetadata, SectionSchema, BlockSchema, SettingDefinition, SectionPreset, SectionProps, BlockProps } from "./types/theme";
+export type { ThemeSettingsV3, PageTemplate, SectionGroup, SectionInstance, BlockInstance, ExternalThemeMetadata, MountResult, SectionSchema, BlockSchema, SettingDefinition, SectionPreset, PresetBlock, SectionProps, BlockProps } from "./types/theme";
+export { MAX_BLOCK_DEPTH } from "./types/theme";
 
 // Hooks
 export { useShop } from "./hooks/useShop";
@@ -9,6 +10,7 @@ export { useCollection, useCollectionOptional } from "./hooks/useCollection";
 export { useCart } from "./hooks/useCart";
 export { useCustomer } from "./hooks/useCustomer";
 export { useThemeSettings } from "./hooks/useThemeSettings";
+export { useCurrentTemplate } from "./hooks/useCurrentTemplate";
 export {
   useLocalization,
   useDirection,
@@ -94,6 +96,15 @@ export type {
   UseShippingRatesState,
 } from "./hooks/useShippingRates";
 
+// Bundle entry helper — hoists the catalog/global-style/navigation/
+// live-preview wiring every theme's `mount()` needs into one place.
+export { mountTheme } from "./mount";
+export type {
+  ThemeMountContext,
+  ThemeMountPage,
+  ThemeRenderArgs,
+} from "./mount";
+
 // Components
 export { NuMuProvider } from "./components/NuMuProvider";
 export { ProductProvider } from "./components/ProductProvider";
@@ -117,9 +128,39 @@ export type { CurrencySwitcherProps } from "./components/CurrencySwitcher";
 export { LocaleSwitcher } from "./components/LocaleSwitcher";
 export type { LocaleSwitcherProps } from "./components/LocaleSwitcher";
 
+// Wave 4 — inline editor affordances. Themes wrap text and images
+// in these so the customizer can click-to-select individual fields
+// instead of just whole sections.
+export { EditableText, EditableImage } from "./components/Editable";
+export type { EditableTextProps, EditableImageProps } from "./components/Editable";
+
+// Shared icon set for the `icon_picker` setting type — themes render a
+// merchant-picked icon by name, with identical glyphs in the editor grid
+// and on the storefront.
+export { Icon, IconMap, ICON_NAMES } from "./components/Icon";
+export type { IconProps } from "./components/Icon";
+
 // Utils
 export { resolveThemeSettings } from "./utils/normalize";
-export { registerSdkSingleton, getSdkSingleton, registerReactSingleton, getReactSingleton, isSdkAvailable } from "./utils/federation";
+export { registerSdkSingleton, getSdkSingleton, clearSdkSingleton, registerReactSingleton, getReactSingleton, isSdkAvailable } from "./utils/federation";
+
+// P1.1 — Dynamic sources. Lets a merchant bind a section setting to a
+// live store value (product title, collection image, store name, …)
+// instead of authoring a literal. The customizer writes
+// `{ __numu_source: "<path>" }` into the draft; themes read settings
+// through `useResolvedSettings(instance)` to get the resolved value.
+export {
+  isDynamicSource,
+  dynamicSource,
+  resolveDynamicValue,
+  resolveSourcePath,
+  resolveSettingsMap,
+} from "./utils/dynamicSources";
+export type {
+  DynamicSourceRef,
+  DynamicResolveContext,
+} from "./utils/dynamicSources";
+export { useResolvedSettings } from "./hooks/useResolvedSettings";
 
 // Phase 2.5 — section authoring helpers + asset pipeline + locales.
 export {
@@ -137,6 +178,8 @@ export type {
   DefineBlockInput,
 } from "./utils/defineSection";
 export { assetUrl } from "./utils/assetUrl";
+// Phase 3.5 — global settings (colors/fonts/layout) → CSS custom properties.
+export { applyGlobalStyleTokens, resolveFontStack } from "./utils/styleTokens";
 export {
   flattenMessages,
   pickTranslations,
@@ -145,4 +188,5 @@ export {
 export type { LocaleMessages, LocaleBundle } from "./utils/locales";
 
 // Contexts (for advanced use)
-export { ShopContext, ProductContext, CollectionContext, CartContext, CustomerContext, ThemeSettingsContext, LocalizationContext, PageContext } from "./contexts";
+export { ShopContext, ProductContext, CollectionContext, CartContext, CustomerContext, ThemeSettingsContext, LocalizationContext, PageContext, NavigationContext } from "./contexts";
+export type { MenuItemData } from "./contexts";

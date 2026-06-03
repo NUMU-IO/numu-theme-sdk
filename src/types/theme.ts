@@ -32,6 +32,13 @@ export interface BlockInstance {
   type: string;
   settings: Record<string, any>;
   disabled?: boolean;
+  /** Nested child blocks (blocks-in-blocks): a block can hold its own
+   *  block container — e.g. a footer "column" holding "link" blocks, or
+   *  a mega-menu. Same shape as a section's block container, so the
+   *  render/editor walk is uniform at any depth. Optional + absent on
+   *  leaf blocks, so pre-nesting payloads load unchanged. */
+  blocks?: Record<string, BlockInstance>;
+  block_order?: string[];
 }
 
 export interface ExternalThemeMetadata {
@@ -40,6 +47,47 @@ export interface ExternalThemeMetadata {
   mode?: string;
   settings_schema?: Record<string, any> | null;
   section_schemas?: Record<string, any> | null;
+}
+
+/**
+ * Live mount handle returned by a V3 theme bundle's `mount(el, ctx)`.
+ *
+ * Two shapes accepted by the host:
+ *
+ *   1. **Legacy** — `mount(el, ctx): () => void`
+ *      The bundle returns only a cleanup function. Every host-side
+ *      themeSettings change forces a full unmount + remount, which is
+ *      expensive but always correct. Hosts must keep supporting this
+ *      for older bundles built against pre-0.2 SDK versions.
+ *
+ *   2. **Wave 3+** — `mount(el, ctx): MountResult`
+ *      The bundle returns an object with `cleanup` + an `applyDraft`
+ *      method that takes a fresh `ThemeSettingsV3` and re-renders the
+ *      bundle's React tree in-place (no createRoot churn). This is the
+ *      fast path used by the customizer's live preview — a keystroke
+ *      in the dashboard becomes a single React reconciliation in the
+ *      iframe, typically < 16 ms.
+ *
+ * Hosts feature-detect by checking `typeof handle === "function"`
+ * (legacy) vs `typeof handle === "object" && handle.cleanup`
+ * (Wave 3+). Theme authors should prefer the MountResult shape — the
+ * `numuTheme` plugin's typings will flag the missing applyDraft once
+ * the editor's live-preview path requires it.
+ */
+export interface MountResult {
+  /** Unmount the bundle's React tree and release any resources. */
+  cleanup: () => void;
+  /**
+   * Apply a fresh draft (e.g. from the customizer iframe's
+   * `numu:theme:update` postMessage) without tearing down the tree.
+   * Implementations typically forward the value to a useState setter
+   * inside a wrapper that renders `<NuMuProvider themeSettings={...}>`.
+   *
+   * Safe to call repeatedly; the bundle is expected to dedup
+   * reference-equal calls on its own. Returns nothing — selection /
+   * navigation echo back via postMessage.
+   */
+  applyDraft: (next: ThemeSettingsV3) => void;
 }
 
 /** Section schema for customizer form generation */
@@ -62,7 +110,20 @@ export interface BlockSchema {
   name_ar?: string;
   limit?: number;
   settings: SettingDefinition[];
+  /** Child block types this block accepts (recursive). When present,
+   *  the customizer lets merchants add/remove/reorder these inside the
+   *  block, up to `max_blocks`. Enables footer columns, mega-menus,
+   *  multi-column layouts. The host caps practical nesting depth
+   *  (MAX_BLOCK_DEPTH). */
+  blocks?: BlockSchema[];
+  max_blocks?: number;
 }
+
+/** Max nesting depth the customizer allows for blocks-in-blocks. Depth
+ *  1 = a top-level block in a section; a block at this depth can't take
+ *  children. Generous (below Shopify's 8) and cheap to raise. Kept in
+ *  sync with the merchant hub's MAX_BLOCK_DEPTH. */
+export const MAX_BLOCK_DEPTH = 5;
 
 /**
  * Setting types the V3 customizer renders. Themes can declare any
@@ -84,7 +145,9 @@ export type SettingType =
   | "image_picker"
   | "url"
   | "product"
+  | "product_list"
   | "collection"
+  | "collection_list"
   | "header"
   | "paragraph"
   | "html"
@@ -96,7 +159,9 @@ export type SettingType =
   | "blog_picker"
   | "link_list_picker"
   | "variant_picker"
-  | "file_upload";
+  | "file_upload"
+  | "icon_picker"
+  | "icon";
 
 /**
  * `visible_if` — conditional visibility expression evaluated against
@@ -128,6 +193,15 @@ export interface SettingDefinition {
   visible_if?: VisibleIf;
 }
 
+export interface PresetBlock {
+  type: string;
+  settings?: Record<string, any>;
+  /** Nested starter blocks materialized when the preset is applied
+   *  (recursive). Lets a preset ship, e.g., a footer column already
+   *  populated with link blocks. */
+  blocks?: PresetBlock[];
+}
+
 export interface SectionPreset {
   name: string;
   /** Localized names so the Add Section dialog reads in the editor's
@@ -137,7 +211,7 @@ export interface SectionPreset {
     ar?: { name?: string };
   };
   settings?: Record<string, any>;
-  blocks?: { type: string; settings?: Record<string, any> }[];
+  blocks?: PresetBlock[];
 }
 
 /** Section component props */
@@ -151,4 +225,9 @@ export interface SectionProps {
 /** Block component props */
 export interface BlockProps {
   settings: Record<string, any>;
+  /** Child block instances when this block nests others (footer column,
+   *  mega-menu, …). Mirror the section→block render: map `blockOrder`
+   *  and look each id up in `blocks`, wrapping each child in `<Block>`. */
+  blocks?: Record<string, BlockInstance>;
+  blockOrder?: string[];
 }

@@ -42,3 +42,45 @@ export const CustomerContext = createContext<Customer | null>(null);
 export const ThemeSettingsContext = createContext<ThemeSettingsV3 | null>(null);
 export const LocalizationContext = createContext<LocalizationState | null>(null);
 export const PageContext = createContext<Page | null>(null);
+/**
+ * Wave 5 — currently-active template identifier. Mirrors the key inside
+ * `themeSettings.templates.<currentTemplate>` so themes can dispatch
+ * which section list to render. Hosts set this via `NuMuProvider`'s
+ * `currentTemplate` prop (which is passed in by the storefront page
+ * component — `app/(store)/[subdomain]/product/[id]/page.tsx` passes
+ * "product", `cart/page.tsx` passes "cart", etc.). Falls back to "home".
+ */
+export const CurrentTemplateContext = createContext<string>("home");
+
+/**
+ * A merchant-managed navigation menu item, exactly as the storefront
+ * menus resolver returns it (`GET /storefront/store/{id}/menus`):
+ * bilingual `label`, a pre-resolved `url`, and nested `children`.
+ *
+ * This is the RAW shape the host injects via `NuMuProvider`'s
+ * `navigation` prop. `useNavigation(handle)` localizes it to the
+ * display-ready `NavigationItem` (a single `title` string for the
+ * active locale).
+ */
+export interface MenuItemData {
+  id: string;
+  label: Record<string, string>;
+  url: string;
+  type?: string | null;
+  resource_id?: string | null;
+  children?: MenuItemData[];
+}
+
+/**
+ * Phase 2.4 — navigation menus keyed by handle (`main-menu`, `footer`,
+ * plus custom), injected by the host from the storefront resolver so a
+ * theme's `useNavigation(handle)` resolves without a client round-trip.
+ *
+ * Defaults to `{}` — an empty map signals "host provided no menus", at
+ * which point `useNavigation` falls back to its own fetch / a theme's
+ * `DEFAULT_NAV`. A present-but-handle-absent map means the menu simply
+ * doesn't exist (render nothing / fallback), no fetch attempted.
+ */
+export const NavigationContext = createContext<Record<string, MenuItemData[]>>(
+  {},
+);

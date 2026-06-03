@@ -46,33 +46,30 @@ interface ReactSingleton {
   ReactDOM: unknown;
 }
 
-// We pin the keys to fixed Symbols on globalThis so ALL copies of this
-// SDK module — even when bundled with a BYOT theme — share the same
-// well-known keys. This is the same approach React's "internals" use.
-const SDK_SYMBOL_KEY = "__NUMU_SDK_SLOT__";
-const REACT_SYMBOL_KEY = "__NUMU_REACT_SLOT__";
-
-interface GlobalWithSlots {
-  [SDK_SYMBOL_KEY]?: symbol;
-  [REACT_SYMBOL_KEY]?: symbol;
-}
-
-function globalSlot(name: string, slotKey: keyof GlobalWithSlots): symbol {
-  const g = globalThis as unknown as GlobalWithSlots;
-  let sym = g[slotKey];
-  if (!sym) {
-    sym = Symbol.for(name);
-    g[slotKey] = sym;
-  }
-  return sym;
-}
-
+// We pin the slot keys via `Symbol.for(name)` so ALL copies of this
+// SDK module — even when bundled with a BYOT theme — resolve to the
+// SAME Symbol identity through the global Symbol registry. The
+// previous implementation also wrote the Symbol back to a string-keyed
+// `globalThis["__NUMU_SDK_SLOT__"]` slot "so multiple module copies
+// could find it" — but `Symbol.for()` already supplies that identity
+// (that's its entire purpose), and writing to a string-keyed
+// globalThis property put the slot name into `Object.keys(globalThis)`,
+// breaking the Principle II "not enumerable" privacy contract.
+//
+// What's still public:
+//   - The Symbol's *name* is in the global Symbol registry. A motivated
+//     attacker who knows the name can call Symbol.for() to recover the
+//     same Symbol. Privacy here is obscurity-through-naming, not crypto.
+//   - The actual SDK object lives at `globalThis[symbol]` — invisible
+//     to `Object.keys`, `Object.getOwnPropertyNames`, and accidental
+//     enumeration by third-party scripts that don't know to call
+//     `Object.getOwnPropertySymbols`.
 function sdkSlot(): symbol {
-  return globalSlot("@numueg/theme-sdk:singleton", SDK_SYMBOL_KEY);
+  return Symbol.for("@numueg/theme-sdk:singleton");
 }
 
 function reactSlot(): symbol {
-  return globalSlot("@numueg/theme-sdk:react", REACT_SYMBOL_KEY);
+  return Symbol.for("@numueg/theme-sdk:react");
 }
 
 export function registerSdkSingleton(sdk: SdkSingleton): void {

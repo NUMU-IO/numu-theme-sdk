@@ -13,6 +13,9 @@ import {
   CustomerContext,
   ThemeSettingsContext,
   LocalizationContext,
+  CurrentTemplateContext,
+  PageContext,
+  NavigationContext,
 } from "../contexts";
 import {
   CustomerActionsContext,
@@ -20,7 +23,7 @@ import {
 } from "../contexts/customer-actions";
 import type { Store, Cart, Customer } from "../types/entities";
 import type { ThemeSettingsV3 } from "../types/theme";
-import type { LocalizationState } from "../contexts";
+import type { LocalizationState, MenuItemData } from "../contexts";
 
 const RTL_LOCALES = ["ar", "he", "fa", "ur"];
 
@@ -31,6 +34,37 @@ interface NuMuProviderProps {
   customer?: Customer | null;
   locale?: string;
   translations?: Record<string, string>;
+  /**
+   * Wave 5 — id of the active page template. Hosts pass this from the
+   * route (e.g. "product" inside app/(store)/[subdomain]/product/[id]).
+   * Themes read it via `useCurrentTemplate()` to render the matching
+   * section list. Defaults to "home" when omitted, so existing themes
+   * built before the prop existed keep rendering their home template.
+   */
+  currentTemplate?: string;
+  /**
+   * Pre-fetched product list for the current page. Themes that call
+   * `useProducts()` will read these from PageContext without needing
+   * `fetchIfMissing: true`. Hosts typically populate this from their
+   * route loader / SSR pass; omitting it leaves `useProducts()`
+   * returning an empty array unless the theme opts into client fetch.
+   */
+  initialProducts?: import("../types/entities").Product[];
+  /**
+   * Pre-fetched collection list — same pattern as initialProducts for
+   * `useCollections()`. Categories/collections shown on the home page
+   * read this slot.
+   */
+  initialCollections?: import("../types/entities").Collection[];
+  /**
+   * Phase 2.4 — store navigation menus keyed by handle (`main-menu`,
+   * `footer`, …), resolved server-side by the host and injected so a
+   * theme's `useNavigation(handle)` resolves synchronously without a
+   * client round-trip. Omit for hosts/themes that don't wire menus —
+   * `useNavigation` then falls back to its own fetch or the theme's
+   * `DEFAULT_NAV`.
+   */
+  navigation?: Record<string, MenuItemData[]>;
   children: ReactNode;
 }
 
@@ -118,8 +152,30 @@ export function NuMuProvider({
   customer,
   locale: initialLocale,
   translations: initialTranslations,
+  currentTemplate = "home",
+  initialProducts,
+  initialCollections,
+  navigation,
   children,
 }: NuMuProviderProps) {
+  // Synthesise a Page record so `useProducts()` and `useCollections()`
+  // can read pre-fetched lists via PageContext. Stable identity ensures
+  // we don't bust the context on every render (initialProducts and
+  // initialCollections come in as fresh arrays from the host's
+  // useMemo'd ctx, so referential equality already holds across renders
+  // without changes; useMemo here is belt-and-suspenders).
+  const pageValue = useMemo(
+    () =>
+      ({
+        type: currentTemplate,
+        title: store?.name ?? "",
+        data: {
+          products: initialProducts ?? [],
+          collections: initialCollections ?? [],
+        },
+      }) as import("../types/entities").Page,
+    [currentTemplate, store?.name, initialProducts, initialCollections],
+  );
   const [cart, setCart] = useState<Cart>(
     initialCart || { ...EMPTY_CART, currency: store.currency },
   );
@@ -657,15 +713,21 @@ export function NuMuProvider({
   return (
     <ShopContext.Provider value={store}>
       <ThemeSettingsContext.Provider value={themeSettings}>
-        <LocalizationContext.Provider value={localization}>
-          <CartContext.Provider value={cartValue}>
-            <CustomerContext.Provider value={customerState}>
-              <CustomerActionsContext.Provider value={customerActions}>
-                {children}
-              </CustomerActionsContext.Provider>
-            </CustomerContext.Provider>
-          </CartContext.Provider>
-        </LocalizationContext.Provider>
+        <CurrentTemplateContext.Provider value={currentTemplate}>
+          <PageContext.Provider value={pageValue}>
+            <LocalizationContext.Provider value={localization}>
+              <CartContext.Provider value={cartValue}>
+                <CustomerContext.Provider value={customerState}>
+                  <CustomerActionsContext.Provider value={customerActions}>
+                    <NavigationContext.Provider value={navigation ?? {}}>
+                      {children}
+                    </NavigationContext.Provider>
+                  </CustomerActionsContext.Provider>
+                </CustomerContext.Provider>
+              </CartContext.Provider>
+            </LocalizationContext.Provider>
+          </PageContext.Provider>
+        </CurrentTemplateContext.Provider>
       </ThemeSettingsContext.Provider>
     </ShopContext.Provider>
   );
