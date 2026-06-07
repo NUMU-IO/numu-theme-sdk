@@ -77,6 +77,32 @@ const EMPTY_CART: Cart = {
 };
 
 /**
+ * The storefront's /api/cart returns money in CENTS (matching the checkout
+ * and built-in cart, which divide by 100 themselves). Themes consume the cart
+ * via useCart() and render with <Money>/formatMoney, which expect MAJOR units
+ * — the same convention as Product.price after the host normalizes it. Convert
+ * cart money to major here so the BYOT boundary is consistent end-to-end.
+ *
+ * Display-only: checkout submits quantities (the server recomputes amounts),
+ * so this never changes what the customer is charged.
+ */
+function normalizeCartFromServer(cart: Cart): Cart {
+  const toMajor = (n: number | null | undefined): number =>
+    typeof n === "number" ? n / 100 : 0;
+  return {
+    ...cart,
+    subtotal: toMajor(cart.subtotal),
+    total: toMajor(cart.total),
+    ...(cart.discount_amount != null
+      ? { discount_amount: toMajor(cart.discount_amount) }
+      : {}),
+    items: Array.isArray(cart.items)
+      ? cart.items.map((it) => ({ ...it, price: toMajor(it.price) }))
+      : [],
+  };
+}
+
+/**
  * Read the `numu_csrf` cookie value from document.cookie.
  *
  * The storefront's GET /api/cart sets this on first fetch; we echo it
@@ -397,7 +423,7 @@ export function NuMuProvider({
         if (!res.ok || cancelled) return;
         const data = (await res.json()) as Cart;
         if (data && typeof data === "object") {
-          setCart(data);
+          setCart(normalizeCartFromServer(data));
         }
       } catch {
         // Network blip / not-yet-deployed cart endpoint. Leave the
@@ -431,7 +457,7 @@ export function NuMuProvider({
         return;
       }
       latestApplied.current = token;
-      setCart(newCart);
+      setCart(normalizeCartFromServer(newCart));
     },
     [],
   );
