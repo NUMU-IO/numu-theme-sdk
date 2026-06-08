@@ -1,6 +1,6 @@
 {
   "name": "@numueg/theme-sdk",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "NUMU Theme SDK — typed hooks, components, and utilities for building NUMU storefront themes",
   "keywords": [
     "numu",
@@ -82,7 +82,7 @@
     "@types/react-dom": "^19.1.0",
     "@testing-library/react": "^16.1.0",
     "cross-env": "^7.0.3",
-    "happy-dom": "^15.11.0",
+    "happy-dom": "^15.11.7",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tsup": "^8.4.0",
