@@ -77,12 +77,12 @@
     "react-dom": ">=18.0.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.1.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
-    "@testing-library/react": "^16.1.0",
     "cross-env": "^7.0.3",
-    "happy-dom": "^15.11.7",
+    "happy-dom": "^20.10.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tsup": "^8.4.0",
