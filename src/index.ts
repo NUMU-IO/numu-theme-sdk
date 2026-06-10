@@ -178,6 +178,9 @@ export type {
   DefineBlockInput,
 } from "./utils/defineSection";
 export { assetUrl } from "./utils/assetUrl";
+// Phase 3 — opt-in server-side focal-point image crops (CF Image Resizing).
+export { focalSrc } from "./utils/imageTransform";
+export type { FocalSrcOptions } from "./utils/imageTransform";
 // Phase 3.5 — global settings (colors/fonts/layout) → CSS custom properties.
 export { applyGlobalStyleTokens, resolveFontStack } from "./utils/styleTokens";
 export {
