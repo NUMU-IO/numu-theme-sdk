@@ -61,13 +61,14 @@ import {
   useEffect,
   useImperativeHandle,
   useState,
+  type ReactElement,
   type ReactNode,
 } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 
 import { NuMuProvider } from "./components/NuMuProvider";
 import { ProductProvider } from "./components/ProductProvider";
-import { applyGlobalStyleTokens, resolveFontStack } from "./utils/styleTokens";
+import { applyGlobalStyleTokens } from "./utils/styleTokens";
 import type {
   Store,
   Cart,
@@ -110,6 +111,14 @@ export interface ThemeMountContext {
   demo?: boolean;
   /** Store navigation menus keyed by handle, resolved server-side. */
   navigation?: Record<string, MenuItemData[]>;
+  /**
+   * Host signal that the container already holds server-rendered HTML for
+   * this exact ctx (produced via `createApp` from `defineThemeEntry`).
+   * `mountTheme` then adopts it with `hydrateRoot` instead of re-rendering
+   * from scratch. Ignored when the container is empty, so a host can pass
+   * it optimistically and still get a plain client mount on SSR failure.
+   */
+  hydrate?: boolean;
   [extra: string]: unknown;
 }
 
@@ -173,7 +182,10 @@ const ThemeMountBridge = forwardRef<
   DraftHandle,
   {
     ctx: ThemeMountContext;
-    mountEl: HTMLElement;
+    /** Null when rendered off-DOM (`createApp` for server rendering); the
+     *  style-token effect is a no-op there — the host SSRs the same vars
+     *  via `computeGlobalStyleTokens`. */
+    mountEl: HTMLElement | null;
     renderApp: (args: ThemeRenderArgs) => ReactNode;
   }
 >(function ThemeMountBridge({ ctx, mountEl, renderApp }, ref) {
@@ -192,25 +204,13 @@ const ThemeMountBridge = forwardRef<
   // Global settings (colors/fonts/layout) → CSS custom properties on the
   // mount root. Re-runs on every draft so the customizer's live preview
   // re-paints as a merchant drags a color or picks a font.
+  // (applyGlobalStyleTokens resolves heading/body fonts to real stacks and
+  // injects webfont links — see computeGlobalStyleTokens, which is the
+  // single source of truth shared with hosts that SSR these vars.)
   useEffect(() => {
+    if (!mountEl) return;
     const gs = (themeSettings.global_settings ?? {}) as Record<string, unknown>;
     applyGlobalStyleTokens(gs, mountEl);
-    // Fonts: applyGlobalStyleTokens only writes a stack for tokens in its
-    // built-in FONT_REGISTRY; the platform's wider font catalog would
-    // otherwise fall through as a bare name with no webfont link. Resolve
-    // heading/body explicitly so any picked font loads + gets a real stack,
-    // writing the exact vars themes read.
-    const headingFont = gs.heading_font;
-    if (typeof headingFont === "string" && headingFont.trim()) {
-      mountEl.style.setProperty(
-        "--theme-heading_font",
-        resolveFontStack(headingFont),
-      );
-    }
-    const bodyFont = gs.body_font;
-    if (typeof bodyFont === "string" && bodyFont.trim()) {
-      mountEl.style.setProperty("--theme-body_font", resolveFontStack(bodyFont));
-    }
   }, [themeSettings, mountEl]);
 
   const store = pickStore(ctx);
@@ -258,9 +258,36 @@ const ThemeMountBridge = forwardRef<
 });
 
 /**
+ * Build the canonical theme element tree for a ctx. BOTH render paths go
+ * through here — `mountTheme` (client mount/hydrate) and `createApp`
+ * (host-side `renderToString`) — so the server markup and the hydration
+ * tree are the same React tree by construction. `mountEl` is a prop, not
+ * DOM output, so it differing between server (null) and client (the
+ * container) cannot cause a hydration mismatch.
+ */
+export function buildThemeElement(
+  ctx: ThemeMountContext,
+  mountEl: HTMLElement | null,
+  renderApp: (args: ThemeRenderArgs) => ReactNode,
+  ref?: (h: DraftHandle | null) => void,
+): ReactElement {
+  return (
+    <StrictMode>
+      <ThemeMountBridge ctx={ctx} mountEl={mountEl} renderApp={renderApp} ref={ref} />
+    </StrictMode>
+  );
+}
+
+/**
  * Mount a V3 theme. Owns the React root, the provider stack (catalog + nav +
  * style tokens), and the live-preview draft cycle. Returns the host-contract
  * `MountResult` (`cleanup` + `applyDraft`).
+ *
+ * When the host passes `ctx.hydrate === true` and the container already
+ * holds server-rendered HTML (produced by this theme's `createApp` with the
+ * identical ctx), the tree is adopted via `hydrateRoot` — no re-render, no
+ * flash. An empty container downgrades to a plain client mount so hosts can
+ * pass the flag optimistically.
  *
  * @param el        the host-supplied container element
  * @param ctx       the mount context (either host or legacy/dev shape)
@@ -271,21 +298,19 @@ export function mountTheme(
   ctx: ThemeMountContext,
   renderApp: (args: ThemeRenderArgs) => ReactNode,
 ): MountResult {
-  const root: Root = createRoot(el);
   const handleRef = { current: null as DraftHandle | null };
+  const element = buildThemeElement(ctx, el, renderApp, (h) => {
+    handleRef.current = h;
+  });
 
-  root.render(
-    <StrictMode>
-      <ThemeMountBridge
-        ctx={ctx}
-        mountEl={el}
-        renderApp={renderApp}
-        ref={(h) => {
-          handleRef.current = h;
-        }}
-      />
-    </StrictMode>,
-  );
+  const shouldHydrate = ctx.hydrate === true && el.firstElementChild !== null;
+  let root: Root;
+  if (shouldHydrate) {
+    root = hydrateRoot(el, element);
+  } else {
+    root = createRoot(el);
+    root.render(element);
+  }
 
   return {
     applyDraft: (next) => handleRef.current?.applyDraft(next),

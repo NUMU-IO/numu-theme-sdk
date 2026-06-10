@@ -98,12 +98,17 @@ export type {
 
 // Bundle entry helper — hoists the catalog/global-style/navigation/
 // live-preview wiring every theme's `mount()` needs into one place.
-export { mountTheme } from "./mount";
+export { mountTheme, buildThemeElement } from "./mount";
 export type {
   ThemeMountContext,
   ThemeMountPage,
   ThemeRenderArgs,
 } from "./mount";
+
+// One-call theme entry: `mount` (client, hydration-aware) + `createApp`
+// (server renderToString) from a single component — the SSR contract.
+export { defineThemeEntry } from "./entry";
+export type { ThemeEntry } from "./entry";
 
 // Components
 export { NuMuProvider } from "./components/NuMuProvider";
@@ -179,7 +184,12 @@ export type {
 } from "./utils/defineSection";
 export { assetUrl } from "./utils/assetUrl";
 // Phase 3.5 — global settings (colors/fonts/layout) → CSS custom properties.
-export { applyGlobalStyleTokens, resolveFontStack } from "./utils/styleTokens";
+export {
+  applyGlobalStyleTokens,
+  computeGlobalStyleTokens,
+  resolveFontStack,
+} from "./utils/styleTokens";
+export type { ComputedStyleTokens } from "./utils/styleTokens";
 export {
   flattenMessages,
   pickTranslations,
