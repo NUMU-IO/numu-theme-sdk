@@ -5,7 +5,7 @@
 [![npm](https://img.shields.io/npm/v/@numueg/theme-sdk.svg)](https://www.npmjs.com/package/@numueg/theme-sdk)
 [![license](https://img.shields.io/npm/l/@numueg/theme-sdk.svg)](./LICENSE)
 
-The SDK every NUMU theme consumes. 25+ hooks (`useCart`, `useProduct`, `useCheckout`, `useVariantSelection`, `useGiftCardBalance`, …), 15+ components (`AddToCartButton`, `ProductCard`, `Money`, `Section`, `NuMuProvider`, …), and helpers for variant resolution, asset URLs, and federation singletons.
+The SDK every NUMU theme consumes. The `mountTheme()` runtime helper, 27+ hooks (`useCart`, `useProduct`, `useCheckout`, `useVariantSelection`, `useCurrentTemplate`, `useResolvedSettings`, …), 15+ components (`AddToCartButton`, `ProductCard`, `Money`, `Section`, `EditableText`/`EditableImage`, `NuMuProvider`, …), and helpers for variant resolution, focal image crops (`focalSrc`), global style tokens, asset URLs, and federation singletons.
 
 Themes import via the bare specifier `@numueg/theme-sdk` — at runtime the storefront's import map resolves it to the host-loaded singleton so every theme on the platform shares one React identity.
 
@@ -31,22 +31,22 @@ The `@numueg/theme-plugin` Vite plugin does this for you automatically.
 
 ## Usage
 
+The host storefront calls your bundle's `mount(el, ctx)` where `ctx = { storeData, page, themeSettings, locale, … }`. Use `mountTheme()` — it wires catalog data, global style tokens, navigation, and live-edit updates for you and returns the `{ unmount, update }` contract the host expects:
+
 ```tsx
-import { createRoot } from "react-dom/client";
-import { NuMuProvider, useCart, AddToCartButton } from "@numueg/theme-sdk";
-import type { MountContext } from "@numueg/theme-sdk";
+import { mountTheme, useCart } from "@numueg/theme-sdk";
 
 function App() {
   const { cart } = useCart();
   return <p>Items in cart: {cart.item_count}</p>;
 }
 
-export function mount(ctx: MountContext) {
-  const root = createRoot(document.getElementById("numu-root")!);
-  root.render(<NuMuProvider {...ctx}><App /></NuMuProvider>);
-  return () => root.unmount();
+export function mount(el: HTMLElement, ctx: unknown) {
+  return mountTheme(el, ctx, () => <App />);
 }
 ```
+
+> The authoritative `ctx` shape is defined by the host's `ByotThemeBoundary` (numu-storefront), not by SDK types — accept it as opaque and let `mountTheme`/`NuMuProvider` normalize it.
 
 ## Docs
 
