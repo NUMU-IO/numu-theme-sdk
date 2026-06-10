@@ -141,10 +141,19 @@ interface DraftHandle {
 }
 
 /** Normalise the two ctx shapes' store slot; never return undefined — SDK
- *  code reads `store.currency` without optional chaining and would throw. */
+ *  code reads `store.currency` without optional chaining and would throw.
+ *  Also maps the storefront's snake_case `default_currency` onto `currency`
+ *  when the latter is missing (pre-0.3 scaffolds did this per-theme; doing
+ *  it here keeps server render and client hydrate byte-identical). */
 function pickStore(ctx: ThemeMountContext): Store {
   const s = ctx.storeData ?? ctx.store;
-  if (s) return s;
+  if (s) {
+    const raw = s as Store & { default_currency?: string };
+    if (!raw.currency && raw.default_currency) {
+      return { ...raw, currency: raw.default_currency };
+    }
+    return s;
+  }
   return {
     id: "unknown",
     name: "Store",
