@@ -103,6 +103,27 @@ function normalizeCartFromServer(cart: Cart): Cart {
 }
 
 /**
+ * The storefront's /api/cart* routes return the cart inside a `{data}`
+ * envelope (`{ success, data: Cart, message }`) — the platform-wide response
+ * shape the hub / admin / customer-fetch all unwrap. The cart logic here
+ * historically read the response AS the cart, so `data.items` was `undefined`
+ * and the cart silently stayed EMPTY: add-to-cart returned 200/201 but the
+ * header count and cart page never updated. Unwrap `.data` when present.
+ */
+function unwrapCart(json: unknown): Cart {
+  if (
+    json &&
+    typeof json === "object" &&
+    "data" in json &&
+    (json as { data?: unknown }).data &&
+    typeof (json as { data?: unknown }).data === "object"
+  ) {
+    return (json as { data: Cart }).data;
+  }
+  return json as Cart;
+}
+
+/**
  * Read the `numu_csrf` cookie value from document.cookie.
  *
  * The storefront's GET /api/cart sets this on first fetch; we echo it
@@ -164,8 +185,8 @@ async function postCartMutation(
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) return;
-  const data = (await res.json()) as Cart;
-  applyCart(data);
+  const json = await res.json();
+  applyCart(unwrapCart(json));
   // Token was actually consumed on entry; applyCart enforces ordering
   // via the closure below.
   void token;
@@ -421,7 +442,8 @@ export function NuMuProvider({
           cache: "no-store",
         });
         if (!res.ok || cancelled) return;
-        const data = (await res.json()) as Cart;
+        const json = await res.json();
+        const data = unwrapCart(json);
         if (data && typeof data === "object") {
           setCart(normalizeCartFromServer(data));
         }
@@ -484,11 +506,42 @@ export function NuMuProvider({
 
   const addItem = useCallback(
     async (productId: string, variantId?: string, quantity?: number) => {
+      // Shared event id for Meta AddToCart dedup: the host /api/cart/add route
+      // fires the CAPI event with this id, and the host <MetaPixel> bridge
+      // fires the matching browser fbq from the CustomEvent below.
+      const eventId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}`;
+      const qty = quantity || 1;
       await mutate("/api/cart/add", {
         product_id: productId,
         variant_id: variantId,
-        quantity: quantity || 1,
+        quantity: qty,
+        _event_id: eventId,
       });
+      // Browser-side AddToCart signal — CAPI is fired server-side by the cart
+      // route with the same id. Dispatched directly (not via useAnalytics) so
+      // we control the event_id and avoid a duplicate /track POST.
+      try {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("numu:analytics:event", {
+              detail: {
+                event: "add_to_cart",
+                payload: {
+                  content_ids: [productId],
+                  content_type: "product",
+                  num_items: qty,
+                },
+                event_id: eventId,
+              },
+            }),
+          );
+        }
+      } catch {
+        /* CustomEvent unsupported — server CAPI still covers the event */
+      }
     },
     [mutate],
   );

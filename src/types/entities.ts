@@ -147,6 +147,25 @@ export interface Order {
   items: OrderItem[];
   created_at: string;
   shipping_address?: Address;
+  /**
+   * Discount code the customer applied at checkout, if any. Sourced from
+   * the backend order-detail (`GET /storefront/me/orders/{id}`). Themes
+   * render this on the order-confirmation / order-detail page.
+   */
+  coupon_code?: string | null;
+  /**
+   * Automatic offers (offers-v2 promotions) applied to the order. Each
+   * entry carries the localized title and the discount it contributed.
+   * `amount` is in integer cents — divide by 100 (or pass through
+   * `<Money>`) before display, consistent with the rest of the order's
+   * money fields.
+   */
+  applied_promotions?: {
+    id: string;
+    title: string;
+    title_ar?: string;
+    amount: number;
+  }[];
 }
 
 export interface OrderItem {
