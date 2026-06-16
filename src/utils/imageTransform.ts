@@ -1,3 +1,64 @@
+import type { CSSProperties } from "react";
+
+/**
+ * Non-destructive image framing transform (focal / zoom / rotation).
+ *
+ * An image setting value may carry optional `transform` metadata
+ * (`{ url, alt, transform }`). The original asset is never modified — the
+ * storefront reproduces the framing purely from these numbers via CSS, so the
+ * SAME uploaded image can be framed differently per placement (hero vs card).
+ *
+ * Hoisted into the SDK (was duplicated in every theme's `_shared.ts` and in
+ * the merchant-hub editor's `imageTransform.ts`). The editor copy MUST stay
+ * equivalent so its preview matches the storefront render exactly.
+ */
+export interface ImageTransform {
+  v: 1;
+  focal?: { x: number; y: number }; // 0..1, default center
+  zoom?: number; // 1..4, default 1
+  rotation?: number; // degrees, default 0
+  fit?: "cover" | "contain";
+}
+
+const _clampT = (n: number, lo: number, hi: number): number =>
+  Math.min(hi, Math.max(lo, Number.isFinite(n) ? n : lo));
+
+/** Read the transform off an image setting value (string | {url,alt,transform}). */
+export function asImageTransform(v: unknown): ImageTransform | undefined {
+  if (v && typeof v === "object" && "transform" in v) {
+    const t = (v as { transform?: unknown }).transform;
+    if (t && typeof t === "object") return t as ImageTransform;
+  }
+  return undefined;
+}
+
+/**
+ * CSS reproducing the transform on an `<img>` that fills a fixed-aspect,
+ * overflow-hidden frame. Default fit is `cover` (Shopify-style: the image
+ * fills its frame, cropping to the focal point) — pass `"contain"` only for
+ * placements that must show the whole image (e.g. a logo). Empty object when
+ * there is no transform AND the caller wants the section's own className to
+ * decide; pass an explicit `fit` to force a default even without a transform.
+ */
+export function applyImageTransform(
+  t: ImageTransform | undefined | null,
+  fit: "cover" | "contain" = "cover",
+): CSSProperties {
+  if (!t) return { objectFit: fit };
+  const fx = Math.round(_clampT(t.focal?.x ?? 0.5, 0, 1) * 1e4) / 100;
+  const fy = Math.round(_clampT(t.focal?.y ?? 0.5, 0, 1) * 1e4) / 100;
+  const zoom = _clampT(t.zoom ?? 1, 1, 4);
+  const rot = (((t.rotation ?? 0) % 360) + 360) % 360;
+  const effFit = t.fit ?? fit;
+  const style: CSSProperties = {
+    transform: `scale(${zoom}) rotate(${rot}deg)`,
+    transformOrigin: `${fx}% ${fy}%`,
+    objectFit: effFit,
+  };
+  if (effFit === "cover") style.objectPosition = `${fx}% ${fy}%`;
+  return style;
+}
+
 /**
  * focalSrc — build a URL for a server-side, focal-point-aware image transform.
  *
