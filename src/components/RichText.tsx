@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 /**
  * <RichText html=... /> — sanitized HTML renderer.
@@ -188,7 +188,21 @@ function sanitizeHtmlServer(input: string): string {
 }
 
 export function RichText({ html, className, as = "div" }: RichTextProps) {
-  const safe = useMemo(() => sanitizeHtml(html || ""), [html]);
+  // Hydration-stable two-pass sanitize: the FIRST client render must produce
+  // the same string the server produced, so when the theme is server-rendered
+  // (`createApp` + hydrateRoot) the dangerouslySetInnerHTML payloads match.
+  // The regex pass and the DOMParser pass can legitimately differ on edge
+  // cases (attribute ordering, entity normalisation), so we render the
+  // server-algorithm output first everywhere and upgrade to the structural
+  // DOMParser sanitize after mount.
+  const [domReady, setDomReady] = useState(false);
+  useEffect(() => {
+    setDomReady(true);
+  }, []);
+  const safe = useMemo(
+    () => (domReady ? sanitizeHtml(html || "") : sanitizeHtmlServer(html || "")),
+    [html, domReady],
+  );
   if (!safe) return null;
   const Tag = as;
   return (

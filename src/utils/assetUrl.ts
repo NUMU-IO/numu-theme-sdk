@@ -44,8 +44,17 @@ interface AssetRuntimeConfig {
 }
 
 function getRuntime(): AssetRuntimeConfig {
-  if (typeof window === "undefined") return {};
-  return window as unknown as AssetRuntimeConfig;
+  if (typeof window !== "undefined") {
+    return window as unknown as AssetRuntimeConfig;
+  }
+  // Server-side render (host SSR worker): the host injects the manifest and
+  // base URL onto globalThis before calling createApp, so server markup
+  // resolves the same hashed URLs the client would — no <img src> hydration
+  // patch-up.
+  if (typeof globalThis !== "undefined") {
+    return globalThis as unknown as AssetRuntimeConfig;
+  }
+  return {};
 }
 
 export function assetUrl(name: string): string {

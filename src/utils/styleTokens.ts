@@ -132,6 +132,11 @@ function injectFontLink(href: string): void {
   document.head.appendChild(link);
 }
 
+/** Pure registry lookup — no webfont injection. */
+function lookupFontStack(value: string): string {
+  return FONT_REGISTRY[value]?.stack ?? value;
+}
+
 /**
  * Resolve a font setting value to a CSS stack. Known tokens map through the
  * registry (and load the webfont); anything else is treated as a literal
@@ -146,18 +151,39 @@ export function resolveFontStack(value: string): string {
   return value;
 }
 
+/** Result of `computeGlobalStyleTokens` — everything a host needs to paint
+ *  global settings without a DOM. */
+export interface ComputedStyleTokens {
+  /** CSS custom properties to set on the theme's mount root. */
+  cssVars: Record<string, string>;
+  /** Google-Fonts stylesheet hrefs for any registry fonts in use. */
+  fontHrefs: string[];
+}
+
 /**
- * Map a store's global settings onto CSS custom properties on `el`. Call on
- * mount and on every `applyDraft` (live preview). No-op when `el` or the
- * settings are missing. Reserved `__`-prefixed keys (e.g. `__translations`)
- * are skipped.
+ * Pure half of `applyGlobalStyleTokens`: compute the exact CSS custom
+ * properties (and webfont hrefs) a settings object maps to, without touching
+ * any DOM. This is what lets a host SERVER-render a theme with the same vars
+ * the bundle applies on mount — both sides call this one function, so the
+ * values cannot drift (drift = unstyled flash or hydration noise).
+ *
+ * Includes the explicit `heading_font` / `body_font` resolution that
+ * `mountTheme` historically layered on top: any string value for those two
+ * ids resolves through the registry (or passes verbatim) so a picked font
+ * gets a real stack even when it isn't a known token.
  */
-export function applyGlobalStyleTokens(
+export function computeGlobalStyleTokens(
   globalSettings: GlobalSettings,
-  el: HTMLElement | null | undefined,
-): void {
-  if (!el || !globalSettings || typeof globalSettings !== "object") return;
-  const style = el.style;
+): ComputedStyleTokens {
+  const cssVars: Record<string, string> = {};
+  const fontHrefs: string[] = [];
+  if (!globalSettings || typeof globalSettings !== "object") {
+    return { cssVars, fontHrefs };
+  }
+
+  const pushHref = (href?: string) => {
+    if (href && !fontHrefs.includes(href)) fontHrefs.push(href);
+  };
 
   for (const [key, value] of Object.entries(globalSettings)) {
     if (!key || key.startsWith("__")) continue;
@@ -165,30 +191,63 @@ export function applyGlobalStyleTokens(
     // color_scheme / color_scheme_group → object of role:color
     if (value && typeof value === "object" && !Array.isArray(value)) {
       for (const [role, c] of Object.entries(value as Record<string, unknown>)) {
-        if (isColorValue(c)) style.setProperty(`--scheme-${key}-${role}`, c);
+        if (isColorValue(c)) cssVars[`--scheme-${key}-${role}`] = c;
       }
       continue;
     }
 
     if (isColorValue(value)) {
-      style.setProperty(`--theme-${key}`, value.trim());
+      cssVars[`--theme-${key}`] = value.trim();
       const role = COLOR_ROLE_ALIASES[key];
-      if (role) style.setProperty(`--theme-color-${role}`, value.trim());
+      if (role) cssVars[`--theme-color-${role}`] = value.trim();
       continue;
     }
 
     if (isFontToken(value)) {
-      const stack = resolveFontStack(value);
-      style.setProperty(`--theme-${key}`, stack);
+      const entry = FONT_REGISTRY[value];
+      cssVars[`--theme-${key}`] = entry.stack;
       const role = FONT_ROLE_ALIASES[key];
-      if (role) style.setProperty(`--theme-font-${role}`, stack);
+      if (role) cssVars[`--theme-font-${role}`] = entry.stack;
+      pushHref(entry.href);
       continue;
     }
 
     // Plain scalar (layout values like page_width "1240px", spacing, etc.).
     if (typeof value === "string" || typeof value === "number") {
       const v = String(value).trim();
-      if (v) style.setProperty(`--theme-${key}`, v);
+      if (v) cssVars[`--theme-${key}`] = v;
     }
   }
+
+  // Explicit heading/body resolution (formerly done by mountTheme's effect):
+  // non-registry font names fall through the scalar branch verbatim above;
+  // these two ids always get the resolved stack + webfont.
+  for (const id of ["heading_font", "body_font"] as const) {
+    const value = (globalSettings as Record<string, unknown>)[id];
+    if (typeof value === "string" && value.trim()) {
+      cssVars[`--theme-${id}`] = lookupFontStack(value);
+      pushHref(FONT_REGISTRY[value]?.href);
+    }
+  }
+
+  return { cssVars, fontHrefs };
+}
+
+/**
+ * Map a store's global settings onto CSS custom properties on `el`. Call on
+ * mount and on every `applyDraft` (live preview). No-op when `el` or the
+ * settings are missing. Reserved `__`-prefixed keys (e.g. `__translations`)
+ * are skipped. Thin DOM shell over `computeGlobalStyleTokens`.
+ */
+export function applyGlobalStyleTokens(
+  globalSettings: GlobalSettings,
+  el: HTMLElement | null | undefined,
+): void {
+  if (!el || !globalSettings || typeof globalSettings !== "object") return;
+  const { cssVars, fontHrefs } = computeGlobalStyleTokens(globalSettings);
+  const style = el.style;
+  for (const [prop, value] of Object.entries(cssVars)) {
+    style.setProperty(prop, value);
+  }
+  for (const href of fontHrefs) injectFontLink(href);
 }
