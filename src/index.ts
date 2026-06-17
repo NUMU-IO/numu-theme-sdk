@@ -190,6 +190,14 @@ export type {
   DefineBlockInput,
 } from "./utils/defineSection";
 export { assetUrl } from "./utils/assetUrl";
+// Phase 3 — opt-in server-side focal-point image crops (CF Image Resizing).
+export { focalSrc } from "./utils/imageTransform";
+export type { FocalSrcOptions } from "./utils/imageTransform";
+// Non-destructive image framing transform (focal / zoom / rotation), hoisted
+// out of each theme's `_shared.ts` so every theme + the <Image> component share
+// one implementation. Default fit is `cover` (Shopify-style fill-the-frame).
+export { applyImageTransform, asImageTransform } from "./utils/imageTransform";
+export type { ImageTransform } from "./utils/imageTransform";
 // Phase 3.5 — global settings (colors/fonts/layout) → CSS custom properties.
 export {
   applyGlobalStyleTokens,
