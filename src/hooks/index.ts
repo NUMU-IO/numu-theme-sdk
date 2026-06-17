@@ -1,5 +1,6 @@
 export { useShop } from "./useShop";
 export { useProduct, useProductOptional } from "./useProduct";
+export { useProductSizeChart, resolveSizeChart } from "./useProductSizeChart";
 export { useCollection, useCollectionOptional } from "./useCollection";
 export { useCart } from "./useCart";
 export { useCustomer } from "./useCustomer";

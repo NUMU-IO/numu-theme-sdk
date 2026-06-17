@@ -4,6 +4,18 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
+### Added
+
+- **Size charts** — `useProductSizeChart()` hook + `resolveSizeChart()` pure
+  resolver. Resolves the per-product chart (`product.attributes.size_chart`)
+  against the store-wide default (`store.settings.size_chart`) using the same
+  precedence as the merchant hub + backend validator (`mode`:
+  `custom` → `default` → `off`, with a legacy no-mode fallback). New types
+  `SizeChart` / `SizeChartMode`.
+- `Product.attributes` and `Store.settings` are now typed (optional
+  `Record<string, unknown>`) — the storefront already forwards these JSONB
+  blobs (also used by `useFieldTranslation`); they were previously untyped.
+
 ## [0.1.0] - 2026-05-11
 
 First public release. Full surface documented at [numueg.app/docs/sdk/overview](https://numueg.app/docs/sdk/overview).

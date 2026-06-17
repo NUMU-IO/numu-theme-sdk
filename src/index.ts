@@ -50,6 +50,13 @@ export { useRelatedProducts } from "./hooks/useRelatedProducts";
 export type { RelatedProductsState } from "./hooks/useRelatedProducts";
 export type { ShopWithHelpers } from "./hooks/useShop";
 
+// Size charts — resolve per-product / store-default charts with one precedence.
+export {
+  useProductSizeChart,
+  resolveSizeChart,
+} from "./hooks/useProductSizeChart";
+export type { SizeChart, SizeChartMode } from "./types/entities";
+
 // Phase 6 — multi-currency presentment.
 export { useCurrency } from "./hooks/useCurrency";
 export type { CurrencyConfig, CurrencyState } from "./hooks/useCurrency";

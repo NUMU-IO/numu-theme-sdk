@@ -1,6 +1,6 @@
 {
   "name": "@numueg/theme-sdk",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "NUMU Theme SDK — typed hooks, components, and utilities for building NUMU storefront themes",
   "keywords": [
     "numu",
