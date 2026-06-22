@@ -68,6 +68,12 @@ export interface MenuItemData {
   url: string;
   type?: string | null;
   resource_id?: string | null;
+  /**
+   * §5 hide-page → hide-nav-link. `false` when the item targets a CMS page
+   * (`/pages/<handle>`) that is currently unpublished or deleted. The backend
+   * menus resolver annotates it; absent/`true` means visible (back-compat).
+   */
+  target_visible?: boolean;
   children?: MenuItemData[];
 }
 

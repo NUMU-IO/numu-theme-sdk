@@ -135,12 +135,63 @@ describe("useNavigation — host-injected (no network)", () => {
     expect(result.current.loading).toBe(false);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it("§5: drops a top-level item whose target page is hidden (target_visible:false)", () => {
+    const menu: MenuItemData[] = [
+      { id: "1", label: { en: "Home" }, url: "/", type: "home" },
+      {
+        id: "2",
+        label: { en: "Lookbook" },
+        url: "/pages/lookbook",
+        type: "page",
+        target_visible: false,
+      },
+      { id: "3", label: { en: "Contact" }, url: "/contact", type: "page" },
+    ];
+    const { result } = renderHook(() => useNavigation("m"), {
+      wrapper: wrapper({ m: menu }),
+    });
+    expect(result.current.items.map((i) => i.title)).toEqual([
+      "Home",
+      "Contact",
+    ]);
+    // Default-visible items expose target_visible:true.
+    expect(result.current.items.every((i) => i.target_visible)).toBe(true);
+  });
+
+  it("§5: drops a hidden child link but keeps its (still non-empty) parent column", () => {
+    const menu: MenuItemData[] = [
+      {
+        id: "c",
+        label: { en: "Help" },
+        url: "/",
+        type: "url",
+        children: [
+          { id: "c1", label: { en: "Shipping" }, url: "/shipping", type: "page" },
+          {
+            id: "c2",
+            label: { en: "Size guide" },
+            url: "/pages/size-guide",
+            type: "page",
+            target_visible: false,
+          },
+        ],
+      },
+    ];
+    const { result } = renderHook(() => useNavigation("footer"), {
+      wrapper: wrapper({ footer: menu }),
+    });
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.items[0].children.map((c) => c.title)).toEqual([
+      "Shipping",
+    ]);
+  });
 });
 
 describe("useNavigation — client fetch fallback", () => {
   it("fetches the menu when the host injects nothing", async () => {
     const payload: NavigationItem[] = [
-      { id: "f1", title: "Fetched", url: "/f", resource_type: null, resource_handle: null, children: [] },
+      { id: "f1", title: "Fetched", url: "/f", resource_type: null, resource_handle: null, target_visible: true, children: [] },
     ];
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ items: payload }), { status: 200 }),

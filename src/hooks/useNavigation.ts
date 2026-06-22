@@ -21,6 +21,13 @@ export interface NavigationItem {
   /** Optional foreign keys when the item references a typed resource. */
   resource_type?: "product" | "collection" | "page" | "blog" | "article" | "url" | null;
   resource_handle?: string | null;
+  /**
+   * §5 hide-page → hide-nav-link. `false` when the target CMS page is
+   * unpublished/deleted (backend-annotated). Defaults to `true` (visible)
+   * when the backend doesn't annotate, so themes can safely filter on
+   * `item.target_visible !== false`.
+   */
+  target_visible: boolean;
   children: NavigationItem[];
 }
 
@@ -81,9 +88,10 @@ function toNavigationItem(raw: MenuItemData, locale: string): NavigationItem {
     url: raw.url || "/",
     resource_type: mapResourceType(raw.type),
     resource_handle: raw.resource_id ?? null,
-    children: (raw.children ?? []).map((child) =>
-      toNavigationItem(child, locale),
-    ),
+    target_visible: raw.target_visible !== false,
+    children: (raw.children ?? [])
+      .map((child) => toNavigationItem(child, locale))
+      .filter((child) => child.target_visible),
   };
 }
 
@@ -121,7 +129,14 @@ export function useNavigation(
   // the host IS authoritative but this handle is absent/empty → render
   // nothing (no doomed fetch).
   const hostItems = useMemo<NavigationItem[] | null>(() => {
-    if (rawItems) return rawItems.map((it) => toNavigationItem(it, locale));
+    if (rawItems)
+      return rawItems
+        .map((it) => toNavigationItem(it, locale))
+        // §5 hide-page → hide-nav-link: drop items whose target CMS page is
+        // unpublished/deleted (backend-annotated). Children already filtered
+        // in toNavigationItem; this drops hidden top-level entries so every
+        // theme using useNavigation gets the behaviour for free.
+        .filter((it) => it.target_visible);
     if (hostProvidedAny) return [];
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
