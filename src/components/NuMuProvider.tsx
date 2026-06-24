@@ -21,7 +21,7 @@ import {
   CustomerActionsContext,
   type CustomerActions,
 } from "../contexts/customer-actions";
-import type { Store, Cart, Customer } from "../types/entities";
+import type { Store, Cart, CartItem, Customer } from "../types/entities";
 import type { ThemeSettingsV3 } from "../types/theme";
 import type { LocalizationState, MenuItemData } from "../contexts";
 
@@ -97,7 +97,24 @@ function normalizeCartFromServer(cart: Cart): Cart {
       ? { discount_amount: toMajor(cart.discount_amount) }
       : {}),
     items: Array.isArray(cart.items)
-      ? cart.items.map((it) => ({ ...it, price: toMajor(it.price) }))
+      ? cart.items.map((it) => {
+          // The storefront/backend cart line item ships `product_name` +
+          // `unit_price`/`total_price` (cents), not the `name`/`price` the
+          // SDK's CartItem interface (and themes) expect. Map them here so
+          // every theme's cart renders the real name + price instead of a
+          // blank name and 0.00. Honour `name`/`price` first for any backend
+          // that already uses them.
+          const raw = it as CartItem & {
+            product_name?: string;
+            unit_price?: number;
+          };
+          return {
+            ...it,
+            name: raw.name || raw.product_name || "",
+            price: toMajor(raw.price ?? raw.unit_price),
+            variant_name: raw.variant_name ?? undefined,
+          };
+        })
       : [],
   };
 }
