@@ -1,6 +1,6 @@
 {
   "name": "@numueg/theme-sdk",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "NUMU Theme SDK — typed hooks, components, and utilities for building NUMU storefront themes",
   "keywords": [
     "numu",
@@ -44,6 +44,16 @@
       "types": "./dist/normalize.d.ts",
       "import": "./dist/normalize.mjs",
       "require": "./dist/normalize.cjs"
+    },
+    "./validation": {
+      "types": "./dist/validation.d.ts",
+      "import": "./dist/validation.mjs",
+      "require": "./dist/validation.cjs"
+    },
+    "./verify": {
+      "types": "./dist/verify.d.ts",
+      "import": "./dist/verify.mjs",
+      "require": "./dist/verify.cjs"
     },
     "./v2-compat": {
       "types": "./dist/v2-compat.d.ts",
