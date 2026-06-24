@@ -45,6 +45,11 @@
       "import": "./dist/normalize.mjs",
       "require": "./dist/normalize.cjs"
     },
+    "./validation": {
+      "types": "./dist/validation.d.ts",
+      "import": "./dist/validation.mjs",
+      "require": "./dist/validation.cjs"
+    },
     "./v2-compat": {
       "types": "./dist/v2-compat.d.ts",
       "import": "./dist/v2-compat.mjs",

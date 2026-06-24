@@ -3,6 +3,22 @@ export type { Store, Product, ProductImage, ProductVariant, Collection, Cart, Ca
 export type { ThemeSettingsV3, PageTemplate, SectionGroup, SectionInstance, BlockInstance, ExternalThemeMetadata, MountResult, SectionSchema, BlockSchema, SettingDefinition, SectionPreset, PresetBlock, SectionProps, BlockProps } from "./types/theme";
 export { MAX_BLOCK_DEPTH } from "./types/theme";
 
+// Theme-contract validators (also available via "@numueg/theme-sdk/validation"
+// as a pure, React-free entry for Node tools like the CLI/plugin/backend).
+export {
+  THEME_CONTRACT_VERSION,
+  SDK_VERSION,
+  REQUIRED_TEMPLATES,
+  KNOWN_TEMPLATES,
+  KNOWN_SETTING_TYPES,
+  validateManifest,
+  validateSectionSchema,
+  validateSettingsAgainstSchema,
+  validateBuiltManifest,
+  mergeResults,
+} from "./validation";
+export type { ValidationIssue, ValidationResult } from "./validation";
+
 // Hooks
 export { useShop } from "./hooks/useShop";
 export { useProduct, useProductOptional } from "./hooks/useProduct";
