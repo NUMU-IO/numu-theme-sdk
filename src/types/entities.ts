@@ -11,6 +11,14 @@ export interface Store {
   default_language: string;
   use_nextjs_storefront: boolean;
   social_links?: Record<string, string>;
+  /**
+   * Store-level JSONB settings blob. Holds merchant-wide configuration the
+   * storefront forwards to themes — e.g. the store-wide default
+   * `size_chart` (see {@link SizeChart}) used when a product opts into
+   * `mode: "default"`. Untyped here because the shape grows independently
+   * of the SDK; narrow it at the read site.
+   */
+  settings?: Record<string, unknown>;
 }
 
 /** Product entity */
@@ -31,6 +39,41 @@ export interface Product {
   in_stock: boolean;
   seo_title?: string;
   seo_description?: string;
+  /**
+   * Per-product JSONB attribute blob the storefront forwards verbatim.
+   * Holds translated fields (`name_ar`, … — see `useFieldTranslation`) and
+   * the per-product `size_chart` ({@link SizeChart}). Untyped because the
+   * shape is open-ended; `useProductSizeChart` narrows the size-chart slot.
+   */
+  attributes?: Record<string, unknown>;
+}
+
+/**
+ * Size-chart resolution mode (mirrors the merchant hub's editor).
+ *
+ *   "custom"  → use the product's own chart
+ *   "default" → fall back to the store-wide chart (`store.settings.size_chart`)
+ *   "off"     → never show, even if a store default exists
+ */
+export type SizeChartMode = "default" | "custom" | "off";
+
+/**
+ * A size / measurement chart, stored per-product at
+ * `product.attributes.size_chart` and store-wide at
+ * `store.settings.size_chart`. Resolve the two with {@link useProductSizeChart}
+ * instead of reading the raw blobs.
+ */
+export interface SizeChart {
+  /** Legacy boolean kept for charts written before `mode` existed. */
+  enabled?: boolean;
+  mode?: SizeChartMode;
+  /** Column labels, e.g. ["Chest", "Waist", "Hip"]. */
+  column_headers: string[];
+  /** One row per size; `values` aligns to `column_headers`. */
+  rows: Array<{ size: string; values: string[] }>;
+  unit?: "cm" | "in" | "kg";
+  notes?: string;
+  image_url?: string;
 }
 
 export interface ProductImage {
