@@ -11,6 +11,7 @@ export default defineConfig({
     types: "src/types/index.ts",
     normalize: "src/utils/normalize.ts",
     validation: "src/validation/index.ts",
+    verify: "src/verify/index.ts",
     "v2-compat": "src/v2-compat.ts",
   },
   format: ["esm", "cjs"],
