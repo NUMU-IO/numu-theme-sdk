@@ -3,6 +3,8 @@ export { ProductProvider } from "./ProductProvider";
 export { CollectionProvider } from "./CollectionProvider";
 export { Money } from "./Money";
 export { Image } from "./Image";
+export { Logo } from "./Logo";
+export type { LogoProps } from "./Logo";
 export { Link } from "./Link";
 export { AddToCartButton } from "./AddToCartButton";
 export { Section, Block } from "./Section";

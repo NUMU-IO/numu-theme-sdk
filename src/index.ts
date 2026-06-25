@@ -139,6 +139,8 @@ export { ProductProvider } from "./components/ProductProvider";
 export { CollectionProvider } from "./components/CollectionProvider";
 export { Money } from "./components/Money";
 export { Image } from "./components/Image";
+export { Logo } from "./components/Logo";
+export type { LogoProps } from "./components/Logo";
 export { Link } from "./components/Link";
 export { AddToCartButton } from "./components/AddToCartButton";
 export { Section, Block } from "./components/Section";
@@ -221,6 +223,14 @@ export {
   resolveFontStack,
 } from "./utils/styleTokens";
 export type { ComputedStyleTokens } from "./utils/styleTokens";
+// Engine-level logo appearance (shape + size) — shared by every theme.
+export {
+  logoImgStyle,
+  logoStyleTokens,
+  LOGO_SHAPE_OPTIONS,
+  LOGO_SIZE_OPTIONS,
+} from "./utils/logoStyle";
+export type { LogoShape, LogoSize } from "./utils/logoStyle";
 export {
   flattenMessages,
   pickTranslations,

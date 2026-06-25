@@ -30,6 +30,8 @@
  * customizer's live preview re-paints as the merchant drags a color.
  */
 
+import { logoStyleTokens } from "./logoStyle";
+
 type GlobalSettings = Record<string, unknown> | null | undefined;
 
 /** id → canonical color role. Covers both `<role>_color` and `color_<role>`. */
@@ -229,6 +231,16 @@ export function computeGlobalStyleTokens(
       pushHref(FONT_REGISTRY[value]?.href);
     }
   }
+
+  // Derived logo shape/size tokens (--theme-logo-box / -radius / -clip) so
+  // host-rendered surfaces (e.g. the checkout header) can mirror the storefront
+  // logo. No-op unless `logo_shape` is an actual shape.
+  const gs = globalSettings as Record<string, unknown>;
+  const logoTokens = logoStyleTokens(
+    typeof gs.logo_shape === "string" ? gs.logo_shape : undefined,
+    typeof gs.logo_size === "string" ? gs.logo_size : undefined,
+  );
+  for (const [k, v] of Object.entries(logoTokens)) cssVars[k] = v;
 
   return { cssVars, fontHrefs };
 }
