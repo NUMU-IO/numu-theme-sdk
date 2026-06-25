@@ -68,6 +68,7 @@ import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 
 import { NuMuProvider } from "./components/NuMuProvider";
 import { ProductProvider } from "./components/ProductProvider";
+import { CollectionProvider } from "./components/CollectionProvider";
 import { applyGlobalStyleTokens } from "./utils/styleTokens";
 import type {
   Store,
@@ -183,6 +184,32 @@ function pickDemo(ctx: ThemeMountContext, themeSettings: ThemeSettingsV3): boole
 }
 
 /**
+ * Wrap the theme app in the singular-entity providers the current route
+ * supplies. A PDP ships `page.data.product` → ProductProvider (so
+ * useProduct() resolves); a collection route ships `page.data.collection`
+ * → CollectionProvider (so useCollection()/useCollectionOptional() resolve
+ * the active collection's name + products). Listing/home routes ship
+ * neither and the app renders unwrapped.
+ */
+function wrapEntityProviders(
+  app: ReactNode,
+  pageData: { product?: Product; collection?: Collection },
+): ReactNode {
+  let inner = app;
+  if (pageData.collection) {
+    inner = (
+      <CollectionProvider collection={pageData.collection}>
+        {inner}
+      </CollectionProvider>
+    );
+  }
+  if (pageData.product) {
+    inner = <ProductProvider product={pageData.product}>{inner}</ProductProvider>;
+  }
+  return inner;
+}
+
+/**
  * Bridge that holds live draft settings, re-applies global style tokens on
  * every change, and wires the full provider stack (catalog + nav) around the
  * theme's app. Exposes `applyDraft` so the host can stream customizer edits.
@@ -233,6 +260,7 @@ const ThemeMountBridge = forwardRef<
   const pageData = (ctx.page?.data ?? {}) as {
     products?: Product[];
     collections?: Collection[];
+    collection?: Collection;
     product?: Product;
   };
 
@@ -257,11 +285,7 @@ const ThemeMountBridge = forwardRef<
       initialCollections={pageData.collections}
       currentTemplate={template}
     >
-      {pageData.product ? (
-        <ProductProvider product={pageData.product}>{app}</ProductProvider>
-      ) : (
-        app
-      )}
+      {wrapEntityProviders(app, pageData)}
     </NuMuProvider>
   );
 });
