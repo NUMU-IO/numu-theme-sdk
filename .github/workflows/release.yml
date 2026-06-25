@@ -33,7 +33,13 @@ jobs:
           always-auth: true
 
       - name: Install
-        run: npm ci
+        # Prefer reproducible `npm ci`, but fall back to `npm install` when
+        # the lockfile drifts across platforms — the native toolchain pulls
+        # `@emnapi/*` optional deps whose resolved version differs between the
+        # Windows checkout that committed the lock and this Linux runner, which
+        # makes strict `npm ci` refuse to install. `npm install` resolves them
+        # per-platform without blocking the publish.
+        run: npm ci || npm install --no-audit --no-fund
 
       - name: Verify version matches tag
         if: github.event_name == 'release'
