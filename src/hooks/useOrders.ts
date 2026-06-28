@@ -125,7 +125,7 @@ export function useOrder(id: string | null | undefined): OrderState {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!customer || !id) {
+    if (!id) {
       setOrder(null);
       setError(null);
       setLoading(false);
@@ -136,14 +136,24 @@ export function useOrder(id: string | null | undefined): OrderState {
     setError(null);
     void (async () => {
       try {
-        const res = await fetch(
-          `/api/customer/me/orders/${encodeURIComponent(id)}`,
-          {
-            method: "GET",
-            credentials: "include",
-            cache: "no-store",
-          },
-        );
+        // Logged-in customer → full owned-order detail. Guest (the common
+        // post-purchase order-confirmation case) → the PUBLIC order-tracking
+        // endpoint, protected by the unguessable order UUID. Without this a
+        // guest's confirmation page showed "order not found".
+        const trackUrl = `/api/storefront/track/${encodeURIComponent(id)}`;
+        let res = customer
+          ? await fetch(`/api/customer/me/orders/${encodeURIComponent(id)}`, {
+              method: "GET",
+              credentials: "include",
+              cache: "no-store",
+            })
+          : await fetch(trackUrl, { cache: "no-store" });
+        // A logged-in user opening someone else's confirmation link (or an
+        // order not yet linked to their account) 404s on /me/orders — fall
+        // back to the public track view so the page still renders.
+        if (!res.ok && customer) {
+          res = await fetch(trackUrl, { cache: "no-store" });
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const body = unwrap(await res.json());
         if (cancelled) return;
