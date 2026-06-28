@@ -63,7 +63,7 @@ export function availableValues(
   const variants = product.variants || [];
   const out: Record<string, Set<string>> = {};
   for (const axis of axes) {
-    out[axis.name] = new Set();
+    const set = new Set<string>();
     for (const v of variants) {
       const opts = v.option_values || v.options || {};
       // Only consider variants compatible with the locked-in part of
@@ -72,9 +72,17 @@ export function availableValues(
         ([k, val]) => k === axis.name || opts[k] === val,
       );
       if (compatible && opts[axis.name]) {
-        out[axis.name].add(opts[axis.name]);
+        set.add(opts[axis.name]);
       }
     }
+    // When NO variant carries option-value data for this axis, availability
+    // is UNKNOWN — not "all sold out". This happens for legacy products whose
+    // axes live in `attributes.variants` (derived into `options`) but have no
+    // SKU-tracked variant rows, so every `variant.option_values` is empty.
+    // Falling back to the axis's declared values keeps the picker usable
+    // instead of rendering every swatch struck-through. A genuinely
+    // constrained axis (≥1 variant with data) keeps its computed set.
+    out[axis.name] = set.size > 0 ? set : new Set(axis.values || []);
   }
   return out;
 }
