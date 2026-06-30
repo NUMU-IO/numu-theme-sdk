@@ -24,6 +24,11 @@ interface ImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "
    */
   loading?: "eager" | "lazy";
   /**
+   * Above-the-fold? When true, forces loading="eager" + fetchPriority="high"
+   * (overrides `loading`). Use on the hero / LCP image. Default false.
+   */
+  priority?: boolean;
+  /**
    * Shopify-style frame. When set (e.g. "3/4", "16/9", "1/1") the image is
    * wrapped in a fixed-aspect, overflow-hidden box and the `<img>` fills it.
    * Combined with `objectFit="cover"` (the default) this guarantees the image
@@ -81,6 +86,7 @@ export function Image({
   sizes = "(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw",
   responsive = true,
   loading = "lazy",
+  priority = false,
   aspectRatio,
   objectFit,
   objectPosition,
@@ -121,6 +127,8 @@ export function Image({
   }
 
   const srcSet = responsive ? buildSrcSet(src) : undefined;
+  // Above-the-fold hero: eager + high fetch priority, overriding `loading`.
+  const effLoading = priority ? "eager" : loading;
 
   // Resolve the fit styling. An explicit transform wins (focal/zoom/rotate).
   // Inside a frame, default to cover so the image always fills it. Without a
@@ -141,7 +149,8 @@ export function Image({
       alt={alt}
       srcSet={srcSet || undefined}
       sizes={srcSet ? sizes : undefined}
-      loading={loading}
+      loading={effLoading}
+      fetchPriority={priority ? "high" : undefined}
       decoding="async"
       className={framed ? undefined : className}
       style={

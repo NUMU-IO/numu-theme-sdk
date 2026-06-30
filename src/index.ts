@@ -139,6 +139,8 @@ export { ProductProvider } from "./components/ProductProvider";
 export { CollectionProvider } from "./components/CollectionProvider";
 export { Money } from "./components/Money";
 export { Image } from "./components/Image";
+export { HeroMedia } from "./components/HeroMedia";
+export type { HeroMediaProps } from "./components/HeroMedia";
 export { Logo } from "./components/Logo";
 export type { LogoProps } from "./components/Logo";
 export { Link } from "./components/Link";
