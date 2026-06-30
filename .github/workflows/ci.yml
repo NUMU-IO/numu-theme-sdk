@@ -13,7 +13,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: npm ci
+      # Prefer reproducible `npm ci`, but fall back to `npm install` when the
+      # lockfile drifts across platforms — the native toolchain pulls `@emnapi/*`
+      # optional deps whose resolved version differs between the Windows checkout
+      # that committed the lock and this Linux runner, which makes strict
+      # `npm ci` refuse to install. Mirrors the Install step in release.yml.
+      - run: npm ci || npm install --no-audit --no-fund
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
