@@ -191,6 +191,8 @@ export interface SettingDefinition {
   unit?: string;
   /** Hide this setting unless the expression evaluates truthy. */
   visible_if?: VisibleIf;
+  /** Aspect hint for image_picker previews + server crops, e.g. "16/9". */
+  aspect_ratio?: string;
 }
 
 export interface PresetBlock {
