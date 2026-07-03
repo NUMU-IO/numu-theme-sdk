@@ -243,7 +243,14 @@ export function NuMuProvider({
   const [cart, setCart] = useState<Cart>(
     initialCart || { ...EMPTY_CART, currency: store.currency },
   );
-  const [loading, setLoading] = useState(false);
+  // `loading` starts TRUE when the cart is NOT hydrated (no initialCart): the
+  // cart is EMPTY_CART only because the on-mount GET /api/cart hasn't landed
+  // yet, NOT because the cart is genuinely empty. Without this, a returning
+  // shopper's cart page flashed "YOUR CART IS EMPTY" for the fetch window
+  // (themes gate their empty state on `loading` — see cart sections). Cleared
+  // in the initial-fetch effect's finally. When the host hydrates `initialCart`
+  // (SSR), the cart is already known → not loading.
+  const [loading, setLoading] = useState(!initialCart);
   // Phase 3.6 — locale precedence:
   //   1. `initialLocale` prop (storefront pages that resolved it server-side)
   //   2. `numu_locale` cookie (client-side fallback for pages that don't
@@ -467,6 +474,11 @@ export function NuMuProvider({
       } catch {
         // Network blip / not-yet-deployed cart endpoint. Leave the
         // empty initial cart in place; the user can still browse.
+      } finally {
+        // Initial cart load resolved (success OR failure): the cart state is
+        // now authoritative, so drop the loading flag. Themes stop showing
+        // their loading placeholder and reveal the real cart / empty state.
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
