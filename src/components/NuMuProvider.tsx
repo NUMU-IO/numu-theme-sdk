@@ -22,6 +22,7 @@ import {
   CustomerActionsContext,
   type CustomerActions,
 } from "../contexts/customer-actions";
+import { readVariantSelection } from "../utils/selectionRegistry";
 import type { Store, Cart, CartItem, Customer } from "../types/entities";
 import type { ThemeSettingsV3 } from "../types/theme";
 import type {
@@ -601,6 +602,7 @@ export function NuMuProvider({
       productId: string,
       variantId?: string,
       quantity?: number,
+      selectedOptions?: Record<string, string>,
     ): Promise<CartMutationResult> => {
       // Shared event id for Meta AddToCart dedup: the host /api/cart/add route
       // fires the CAPI event with this id, and the host <MetaPixel> bridge
@@ -610,10 +612,20 @@ export function NuMuProvider({
           ? crypto.randomUUID()
           : `${Date.now()}`;
       const qty = quantity || 1;
+      // Picker axes — the backend uses them ONLY as a variant_name fallback
+      // when the variant row can't name itself (legacy products keep axes in
+      // attributes JSON with a placeholder variant whose option_values is {}).
+      // Falls back to the live useVariantSelection state for this product so
+      // themes calling addItem directly get the rule with no changes.
+      const axes =
+        selectedOptions && Object.keys(selectedOptions).length > 0
+          ? selectedOptions
+          : (readVariantSelection(productId) ?? undefined);
       const result = await mutate("/api/cart/add", {
         product_id: productId,
         variant_id: variantId,
         quantity: qty,
+        selected_options: axes,
         _event_id: eventId,
       });
       // Gate the AddToCart analytics on a SUCCESSFUL write. This previously

@@ -106,6 +106,14 @@ export {
 } from "./utils/variants";
 export { useVariantSelection } from "./hooks/useVariantSelection";
 export type { UseVariantSelection } from "./hooks/useVariantSelection";
+// Selection registry — useVariantSelection publishes the live picker axes
+// here and addItem reads them back as the cart line's variant_name fallback
+// (legacy products with no resolvable variant rows). Exported for themes
+// that build their own add-to-cart buttons outside the SDK primitives.
+export {
+  publishVariantSelection,
+  readVariantSelection,
+} from "./utils/selectionRegistry";
 export type { ProductOption } from "./types/entities";
 
 // Phase 8.3 — gift card balance lookup for checkout.
