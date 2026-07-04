@@ -87,13 +87,13 @@ function isSafeUrl(url: string): boolean {
  * Sanitize an HTML string against the allowlist above. Runs server-
  * AND client-side because rich-text fields are server-rendered for SEO.
  *
- * Implementation note: We use DOMParser when available (browser) for
- * structural correctness; on server we fall through a regex-based
- * pass that handles the common formatting tags + escapes everything
- * else. The server pass is intentionally conservative — themes that
- * need server-rendered rich content with edge-case structure should
- * sanitize on the API tier and pass the sanitized HTML through
- * `bypassSanitize` (escape hatch below).
+ * Implementation note: in the browser we use DOMParser (structural allowlist
+ * — see `sanitizeHtmlClient`/`walk`). On the server (no DOM) we fall through
+ * to `sanitizeHtmlServer`, a hardened regex denylist that strips dangerous
+ * element blocks to a fixpoint, removes inline event handlers (incl.
+ * slash-separated ones), and drops non-allowlisted `href`/`src` URLs. Themes
+ * needing server-rendered rich content with edge-case structure should
+ * sanitize on the API tier and pass already-safe HTML through.
  */
 export function sanitizeHtml(input: string): string {
   if (!input) return "";
@@ -159,31 +159,68 @@ function walk(node: Element): void {
 }
 
 /**
- * Server-side fallback. We don't have a DOM here, so we do an
- * HTML-entity-escape and unescape only the allowed inline formatting
- * tags. This is conservative — block-level tags work but with limited
- * attribute support.
+ * Server-side fallback sanitizer — DOM-free, so it runs during SSR (this is
+ * the string that ships in the FIRST paint before hydration upgrades to the
+ * structural DOMParser walk). Being regex-based it can't be a full parser, so
+ * it's hardened as a denylist that closes the known bypasses:
+ *
+ *   (a) Inline event handlers: the separator before the `on…` name is a class
+ *       `[\s/"'<]`, not just `\s`, so slash-separated handlers are caught —
+ *       `<img/onerror=alert(1)>` (no whitespace before `onerror`) previously
+ *       survived the `\s+on\w+=` pass entirely.
+ *   (b) Dangerous element blocks (`<script>`, `<style>`, `<iframe>`, …) are
+ *       stripped to a FIXPOINT (repeat until the string stops changing).
+ *       A single pass is defeatable by nesting —
+ *       `<scr<script></script>ipt>alert(1)</scr…ipt>` collapses into a fresh
+ *       `<script>` once the inner match is removed.
+ *   (c) `javascript:` / `data:` (and any non-allowlisted protocol) in
+ *       `href`/`src` are removed via `isSafeUrl` (allowlist: http(s), mailto,
+ *       tel, relative). The whole attribute is dropped when the value fails.
+ *
+ * The client path (`sanitizeHtmlClient`) remains the real allowlist — it walks
+ * a parsed DOM and drops any tag/attribute not on the allowlist — and takes
+ * over after mount. Themes needing richer SSR structure should sanitize on the
+ * API tier and pass already-safe HTML through.
  */
 function sanitizeHtmlServer(input: string): string {
-  // Strip dangerous blocks entirely.
-  let s = input
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
-    .replace(/<object[\s\S]*?<\/object>/gi, "")
-    .replace(/<embed[\s\S]*?<\/embed>/gi, "")
-    .replace(/<link[\s\S]*?>/gi, "")
-    .replace(/<meta[\s\S]*?>/gi, "");
-  // Strip on*= attrs.
-  s = s.replace(/\s+on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-  // Strip javascript:/data: in href/src.
+  if (!input) return "";
+  let s = input;
+  let prev: string;
+
+  // (b) Strip dangerous element blocks + any standalone opener/closer/void of
+  // document-scope tags, repeated to a fixpoint so nested/truncated markup
+  // can't reconstitute an executable island after one pass.
+  const DANGEROUS: RegExp[] = [
+    /<script\b[\s\S]*?<\/script\s*>/gi,
+    /<style\b[\s\S]*?<\/style\s*>/gi,
+    /<iframe\b[\s\S]*?<\/iframe\s*>/gi,
+    /<object\b[\s\S]*?<\/object\s*>/gi,
+    /<embed\b[\s\S]*?<\/embed\s*>/gi,
+    /<\/?(?:script|style|iframe|object|embed|link|meta|form|input)\b[^>]*>/gi,
+  ];
+  do {
+    prev = s;
+    for (const re of DANGEROUS) s = s.replace(re, "");
+  } while (s !== prev);
+
+  // (a) Strip inline event handlers to a fixpoint, with a broadened separator
+  // class so slash/quote-separated handlers are caught, not just space-led.
+  const HANDLER = /[\s/"'<]on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
+  do {
+    prev = s;
+    s = s.replace(HANDLER, "");
+  } while (s !== prev);
+
+  // (c) Strip non-allowlisted URLs (javascript:/data:/…) in href/src — the
+  // whole attribute is dropped when isSafeUrl rejects the value.
   s = s.replace(
-    /\s+(href|src)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi,
-    (full, attr, val) => {
+    /[\s/"'<](href|src)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi,
+    (full: string, _attr: string, val: string) => {
       const cleaned = String(val).replace(/^['"]|['"]$/g, "");
       return isSafeUrl(cleaned) ? full : "";
     },
   );
+
   return s;
 }
 

@@ -19,7 +19,7 @@ import { describe, expect, it } from "vitest";
 
 import { defineThemeEntry } from "../entry";
 import type { ThemeMountContext } from "../mount";
-import { RichText } from "../components/RichText";
+import { RichText, sanitizeHtml } from "../components/RichText";
 import { computeGlobalStyleTokens } from "../utils/styleTokens";
 import type { ThemeSettingsV3 } from "../types/theme";
 import type { Store } from "../types/entities";
@@ -146,5 +146,64 @@ describe("RichText server path", () => {
     );
     expect(html).toContain("<strong>world</strong>");
     expect(html).not.toContain("script");
+  });
+});
+
+/**
+ * SSR sanitizer bypasses (Phase 2 correctness). This is the node-env code path
+ * (`sanitizeHtml` → `sanitizeHtmlServer`), i.e. the string that ships in the
+ * FIRST paint before hydration. Each case is a bypass the old regex allowed.
+ */
+describe("sanitizeHtml — server path (no DOM) hardening", () => {
+  it("neutralizes a slash-separated event handler: <img/onerror=…>", () => {
+    const out = sanitizeHtml("<img/onerror=alert(1)>");
+    // Old `\s+on\w+=` required whitespace before `onerror`, so the slash form
+    // survived untouched. It must not anymore.
+    expect(out.toLowerCase()).not.toContain("onerror");
+    expect(out).not.toContain("alert(1)");
+  });
+
+  it("still strips a plain space-separated handler with a safe src kept", () => {
+    const out = sanitizeHtml('<img src="/ok.png" onerror="steal()">');
+    expect(out.toLowerCase()).not.toContain("onerror");
+    expect(out).not.toContain("steal()");
+    // The safe relative src is preserved.
+    expect(out).toContain("/ok.png");
+  });
+
+  it("neutralizes a nested/spliced <script> that reconstitutes after one pass", () => {
+    // Removing the two inner <script></script> in a single pass collapses this
+    // into a fresh <script>alert(1)</script>. The fixpoint loop must re-strip.
+    const nested =
+      "<scr<script></script>ipt>alert(1)</scr<script></script>ipt>";
+    const out = sanitizeHtml(nested);
+    expect(out.toLowerCase()).not.toContain("<script");
+    expect(out.toLowerCase()).not.toContain("</script");
+  });
+
+  it("strips javascript: and data: URLs in href/src", () => {
+    expect(
+      sanitizeHtml('<a href="javascript:alert(1)">x</a>').toLowerCase(),
+    ).not.toContain("javascript:");
+    expect(
+      sanitizeHtml(
+        '<a href="data:text/html;base64,PHNjcmlwdD4=">x</a>',
+      ).toLowerCase(),
+    ).not.toContain("data:");
+    // Script smuggled inside a data: image src is also gone.
+    const img = sanitizeHtml(
+      '<img src="data:text/html,<script>alert(1)</script>">',
+    );
+    expect(img.toLowerCase()).not.toContain("data:");
+    expect(img.toLowerCase()).not.toContain("<script");
+  });
+
+  it("preserves safe formatting + links", () => {
+    const out = sanitizeHtml(
+      '<p>Hi <strong>there</strong> <a href="/shop">shop</a> <a href="https://x.test">ext</a></p>',
+    );
+    expect(out).toContain("<strong>there</strong>");
+    expect(out).toContain('href="/shop"');
+    expect(out).toContain('href="https://x.test"');
   });
 });

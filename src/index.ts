@@ -241,5 +241,5 @@ export {
 export type { LocaleMessages, LocaleBundle } from "./utils/locales";
 
 // Contexts (for advanced use)
-export { ShopContext, ProductContext, CollectionContext, CartContext, CustomerContext, ThemeSettingsContext, LocalizationContext, PageContext, NavigationContext } from "./contexts";
-export type { MenuItemData } from "./contexts";
+export { ShopContext, ProductContext, CollectionContext, CartContext, CustomerContext, ThemeSettingsContext, LocalizationContext, PageContext, NavigationContext, CurrencyContext } from "./contexts";
+export type { MenuItemData, CartMutationResult, CartContextValue } from "./contexts";

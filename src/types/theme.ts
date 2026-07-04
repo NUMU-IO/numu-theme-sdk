@@ -216,9 +216,35 @@ export interface SectionPreset {
   blocks?: PresetBlock[];
 }
 
-/** Section component props */
-export interface SectionProps {
-  settings: Record<string, any>;
+/**
+ * Section component props.
+ *
+ * Generic over the settings shape so a theme can type its own settings
+ * without hand-rolling a parallel props interface (the `EmpSectionProps`
+ * pattern every theme was duplicating). `id`/`type` mirror the section
+ * instance's key + `SectionInstance.type` so a component can key React
+ * lists, dispatch on type, or emit editor anchors without threading them
+ * separately; `groupId` names the owning `SectionGroup` for header/footer
+ * group sections (absent for template sections).
+ *
+ *   // Loosely typed (default) — settings is Record<string, unknown>:
+ *   function Hero(props: SectionProps) { … }
+ *
+ *   // Strongly typed:
+ *   interface HeroSettings { headline: string; show_cta: boolean }
+ *   function Hero({ settings }: SectionProps<HeroSettings>) {
+ *     return <h1>{settings.headline}</h1>;
+ *   }
+ */
+export interface SectionProps<S = Record<string, unknown>> {
+  /** The section instance's key within its template/group. */
+  id: string;
+  /** The section's `type` (its schema type / component name). */
+  type: string;
+  /** Owning section-group id for header/footer group sections; absent for
+   *  template-level sections. */
+  groupId?: string;
+  settings: S;
   blocks?: Record<string, BlockInstance>;
   blockOrder?: string[];
   storeData?: any;
