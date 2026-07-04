@@ -4,6 +4,42 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-04
+
+Template epic I3 — the SDK side of template overrides + global sections shared
+across pages. Additive: three new/extended surfaces, no breaking changes. As
+always, self-contained theme bundles freeze the SDK at build time, so themes
+must be **rebuilt + redeployed** to pick these up.
+
+### Added
+
+- **`useSectionGroup(group)`** — returns the ordered section instances for a
+  named section group ("header", "footer", or any custom global group) from
+  `themeSettings.section_groups[group]`. Each entry re-attaches its `id` (the
+  key it held in the group's `sections` map) so a theme can key its React list,
+  wire `<Section id={…}>` click-to-select, and dispatch the `type` through its
+  OWN registry. Returns a stable `[]` when there is no provider, no
+  `section_groups`, the group is absent, or its `order` is empty. Disabled
+  instances are included (the `disabled` flag is preserved); ids in `order` but
+  missing from `sections` are skipped. New export `useSectionGroup` + type
+  `SectionGroupInstance` (`SectionInstance & { id: string }`).
+
+  No `<GlobalSections>` component ships: the SDK has no section registry — a
+  theme builds its own via `collectSections` — so there is no generic renderer
+  to expose. Themes render the returned instances through their existing
+  registry, exactly as they already do for template sections.
+
+- **`Page.template` (+ `ThemeMountPage.template`)** — an optional resolved
+  alternate template key surfaced via `usePage()?.template`, e.g.
+  `"product.wholesale"` for a product routed to the `wholesale` template
+  suffix. Distinct from `useCurrentTemplate()` / `page.type`, which stay the
+  base route type (`"product"`); `template` carries the FULL key a theme uses
+  to look up `themeSettings.templates[template]`. Hosts forward it in the mount
+  context's `page.template`; `mountTheme` threads it to `NuMuProvider`'s new
+  optional `pageTemplate` prop, which publishes it on the `PageContext` value.
+  Omitted for pages on their default template, so themes/hosts predating the
+  field are unaffected.
+
 ## [0.8.0] - 2026-07-04
 
 Phase 3 (shared client-data layer). Additive — a new primitive plus internal

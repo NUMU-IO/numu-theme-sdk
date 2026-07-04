@@ -37,6 +37,13 @@ export {
 } from "./hooks/useLocalization";
 export { usePage } from "./hooks/usePage";
 export { useSection, useSectionOptional, SectionContext } from "./hooks/useSection";
+// I3 — global sections shared across pages. `useSectionGroup(group)` returns
+// the ordered section instances (each with its `id`) for a named group from
+// `themeSettings.section_groups`. No `<GlobalSections>` component ships: the
+// SDK has no section registry (themes build their own via `collectSections`),
+// so the theme renders the returned instances through its own registry.
+export { useSectionGroup } from "./hooks/useSectionGroup";
+export type { SectionGroupInstance } from "./hooks/useSectionGroup";
 export { useMoney } from "./hooks/useMoney";
 export { useImage } from "./hooks/useImage";
 export { useProducts } from "./hooks/useProducts";
