@@ -86,6 +86,13 @@ export interface ThemeMountPage {
   handle?: string;
   title?: string;
   data?: Record<string, unknown>;
+  /**
+   * Resolved alternate template key for this page (e.g. `"product.wholesale"`)
+   * when the storefront routed it to a template suffix. `mountTheme` forwards
+   * it to `NuMuProvider` so a theme reads it via `usePage()?.template`. Absent
+   * for pages on their default template. Additive/optional.
+   */
+  template?: string;
 }
 
 /**
@@ -284,6 +291,7 @@ const ThemeMountBridge = forwardRef<
       initialProducts={pageData.products}
       initialCollections={pageData.collections}
       currentTemplate={template}
+      pageTemplate={ctx.page?.template}
     >
       {wrapEntityProviders(app, pageData)}
     </NuMuProvider>

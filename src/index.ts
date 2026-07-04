@@ -37,6 +37,13 @@ export {
 } from "./hooks/useLocalization";
 export { usePage } from "./hooks/usePage";
 export { useSection, useSectionOptional, SectionContext } from "./hooks/useSection";
+// I3 — global sections shared across pages. `useSectionGroup(group)` returns
+// the ordered section instances (each with its `id`) for a named group from
+// `themeSettings.section_groups`. No `<GlobalSections>` component ships: the
+// SDK has no section registry (themes build their own via `collectSections`),
+// so the theme renders the returned instances through its own registry.
+export { useSectionGroup } from "./hooks/useSectionGroup";
+export type { SectionGroupInstance } from "./hooks/useSectionGroup";
 export { useMoney } from "./hooks/useMoney";
 export { useImage } from "./hooks/useImage";
 export { useProducts } from "./hooks/useProducts";
@@ -65,6 +72,20 @@ export type { WishlistItem, WishlistState } from "./hooks/useWishlist";
 export { useRelatedProducts } from "./hooks/useRelatedProducts";
 export type { RelatedProductsState } from "./hooks/useRelatedProducts";
 export type { ShopWithHelpers } from "./hooks/useShop";
+
+// Phase 3 — shared client-data layer. An SWR-style, dependency-free cache that
+// dedupes in-flight requests by key across all hook instances, keeps them in
+// sync, and seq-guards + aborts superseded fetches. `useWishlist` / `useApp` /
+// `useRelatedProducts` are built on it; themes can use it for their own data.
+export { useCachedResource } from "./lib/dataCache";
+export type {
+  CachedResource,
+  CachedResourceState,
+  CacheFetcher,
+  CacheMutator,
+  MutateOptions,
+  UseCachedResourceOptions,
+} from "./lib/dataCache";
 
 // Size charts — resolve per-product / store-default charts with one precedence.
 export {

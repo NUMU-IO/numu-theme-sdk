@@ -1,6 +1,7 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { useShop } from "./useShop";
+import { useCachedResource } from "../lib/dataCache";
 
 /**
  * Read app-provided data + manifest for a slug installed on the
@@ -19,10 +20,19 @@ import { useShop } from "./useShop";
  * `{ available: false }` rather than as a network error — themes
  * branch on availability without try/catch.
  *
- * The hook revalidates whenever the slug changes, but does NOT refetch
- * on focus / interval — app data is usually slow-changing (config +
- * manifest). Themes that need live data should layer their own
- * refresh on top of the returned `refresh()` callback.
+ * Phase 3 (client-data layer): the fetch now runs through the shared
+ * `useCachedResource` store keyed by `numu:app:<store_id>:<slug>`. Two upgrades
+ * over the old per-instance `useState` + fetch:
+ *   - DEDUP + SYNC: N consumers of the same app slug share ONE request and one
+ *     result, instead of each firing its own `/apps/{slug}` fetch.
+ *   - CANCELLATION / ORDERING: the fetcher receives an AbortSignal and the
+ *     cache seq-guards results, so a slow response for a superseded slug (or a
+ *     superseded `refresh()`) can no longer apply stale state over a newer one
+ *     — the audited "out-of-order responses apply stale state" bug.
+ *
+ * `loading` reflects the FIRST load only; a `refresh()` revalidates in the
+ * background (`isValidating`) while keeping the last-good data visible, rather
+ * than blanking to a skeleton on every manual refresh.
  */
 
 export interface AppManifestBlock {
@@ -57,73 +67,66 @@ export interface AppState<T = unknown> {
   refresh: () => Promise<void>;
 }
 
+/** Normalized fetch result cached per key. `available:false` covers both the
+ *  "not installed" (404) and "no payload" cases so themes branch on one flag. */
+interface AppFetchResult<T> {
+  payload: AppPayload<T> | null;
+  available: boolean;
+}
+
 export function useApp<T = unknown>(slug: string): AppState<T> {
   const shop = useShop();
-  const [state, setState] = useState<{
-    data: AppPayload<T> | null;
-    loading: boolean;
-    available: boolean;
-    error: Error | null;
-  }>({ data: null, loading: true, available: false, error: null });
+  // Key on store + slug so a different slug is a different cache entry — a
+  // rapid slug switch reads its own entry rather than racing one shared slot.
+  const key = slug ? `numu:app:${shop.id}:${slug}` : "";
 
-  const fetchApp = useCallback(async (): Promise<void> => {
-    if (!slug) {
-      setState({ data: null, loading: false, available: false, error: null });
-      return;
-    }
-    setState((s) => ({ ...s, loading: true, error: null }));
-    try {
+  const fetcher = useCallback(
+    async (signal: AbortSignal): Promise<AppFetchResult<T>> => {
       const url = `/api/storefront/apps/${encodeURIComponent(slug)}`;
       const res = await fetch(url, {
         credentials: "include",
         headers: { Accept: "application/json" },
+        signal,
       });
       if (res.status === 404) {
-        // Not installed (or app disabled). Standard not-available
-        // shape — keeps theme branching simple.
-        setState({
-          data: null,
-          loading: false,
-          available: false,
-          error: null,
-        });
-        return;
+        // Not installed (or app disabled). Standard not-available shape —
+        // keeps theme branching simple (no thrown error).
+        return { payload: null, available: false };
       }
       if (!res.ok) {
         throw new Error(`useApp(${slug}) failed: HTTP ${res.status}`);
       }
       const body = (await res.json()) as {
-        data?: AppPayload<T> & { available?: boolean };
+        data?: (AppPayload<T> & { available?: boolean }) | null;
       };
-      const payload = body.data;
-      if (!payload) {
-        setState({
-          data: null,
-          loading: false,
-          available: false,
-          error: null,
-        });
-        return;
-      }
-      setState({
-        data: payload as AppPayload<T>,
-        loading: false,
+      const payload = body.data ?? null;
+      if (!payload) return { payload: null, available: false };
+      return {
+        payload: payload as AppPayload<T>,
         available: payload.available !== false,
-        error: null,
-      });
-    } catch (e) {
-      setState({
-        data: null,
-        loading: false,
-        available: false,
-        error: e instanceof Error ? e : new Error(String(e)),
-      });
-    }
-  }, [slug, shop.id]);
+      };
+    },
+    [slug],
+  );
 
-  useEffect(() => {
-    void fetchApp();
-  }, [fetchApp]);
+  const { data, isLoading, error, revalidate } = useCachedResource<
+    AppFetchResult<T>
+  >(key, fetcher, {
+    enabled: Boolean(slug),
+    initialData: { payload: null, available: false },
+  });
 
-  return { ...state, refresh: fetchApp };
+  const refresh = useCallback(async (): Promise<void> => {
+    await revalidate();
+  }, [revalidate]);
+
+  // Preserve the original contract: on error, present as not-available with a
+  // null payload (the error is still surfaced separately).
+  return {
+    data: error ? null : data?.payload ?? null,
+    loading: isLoading,
+    available: error ? false : data?.available ?? false,
+    error: error ?? null,
+    refresh,
+  };
 }

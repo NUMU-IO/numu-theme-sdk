@@ -1,6 +1,6 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-import { useCustomer } from "./useCustomer";
+import { useCallback } from "react";
+import { useCachedResource, readResource } from "../lib/dataCache";
 
 /**
  * Wishlist hook with localStorage fallback.
@@ -15,8 +15,17 @@ import { useCustomer } from "./useCustomer";
  * v1 implementation: localStorage only. The /api/customer/me/wishlist
  * endpoint isn't wired yet; an authed visitor still gets the local
  * fallback so themes work end-to-end. When the endpoint lands, the
- * mutation methods will short-circuit to the server fetch and the
- * effect below will drop the localStorage path for authed users.
+ * fetcher below swaps its localStorage read for the server fetch and the
+ * mutation methods gain a `{ revalidate: true }` write-through.
+ *
+ * Phase 3 (client-data layer): the items list now lives in the shared
+ * `useCachedResource` store keyed by `numu_wishlist_<store_id>`, NOT in
+ * per-instance `useState`. Previously two `<Heart>`s for the same product
+ * each held their own copy, so adding via one never re-rendered the other —
+ * the two hearts DESYNCED. Now every `useWishlist(storeId)` consumer reads
+ * and writes ONE shared entry, so an add/remove anywhere reflows every heart.
+ * Writes are optimistic (the shared store updates instantly) and roll back if
+ * persistence throws.
  */
 
 export interface WishlistItem {
@@ -53,13 +62,14 @@ function readLocal(storeId: string): WishlistItem[] {
   }
 }
 
-function writeLocal(storeId: string, items: WishlistItem[]): void {
+/**
+ * Persist the list. Unlike the previous swallow-all writer, this THROWS on a
+ * write failure (quota / private mode) so the optimistic mutation can roll
+ * back — the shared store must not diverge from what actually persisted.
+ */
+function persistWishlist(storeId: string, items: WishlistItem[]): void {
   if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(storageKey(storeId), JSON.stringify(items));
-  } catch {
-    /* quota / private mode — wishlist degrades to in-memory for the session */
-  }
+  window.localStorage.setItem(storageKey(storeId), JSON.stringify(items));
 }
 
 function sameItem(
@@ -72,6 +82,9 @@ function sameItem(
   );
 }
 
+// Stable empty reference so `items` identity doesn't churn every render.
+const EMPTY: WishlistItem[] = [];
+
 /**
  * @param storeId The store the wishlist is scoped to. Pass `useShop().id`.
  *                Without it, the hook can't keep one merchant's wishlist
@@ -79,17 +92,24 @@ function sameItem(
  *                domain (e.g. apex preview).
  */
 export function useWishlist(storeId: string): WishlistState {
-  const customer = useCustomer();
-  const [items, setItems] = useState<WishlistItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const key = storageKey(storeId);
 
-  // Hydrate from localStorage on mount. When the server-side endpoint
-  // lands, an authed customer will fetch from there instead.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    setItems(readLocal(storeId));
-    setLoading(false);
-  }, [storeId, customer?.id]);
+  // Hydrate from localStorage. Wrapped in a resolved promise so the shared
+  // cache has one code path for both the v1 localStorage read and the future
+  // server-backed fetch. SSR-safe: readLocal returns [] on the server and the
+  // fetch only runs client-side inside useCachedResource's effect.
+  const fetcher = useCallback(
+    () => Promise.resolve(readLocal(storeId)),
+    [storeId],
+  );
+
+  const { data, isLoading, mutate } = useCachedResource<WishlistItem[]>(
+    key,
+    fetcher,
+    { initialData: EMPTY },
+  );
+
+  const items = data ?? EMPTY;
 
   const has = useCallback(
     (productId: string, variantId?: string | null) =>
@@ -97,42 +117,55 @@ export function useWishlist(storeId: string): WishlistState {
     [items],
   );
 
-  const addToWishlist = useCallback(
-    (productId: string, variantId?: string | null) => {
-      setItems((prev) => {
-        if (prev.some((it) => sameItem(it, productId, variantId))) {
-          return prev;
-        }
-        const next: WishlistItem[] = [
-          ...prev,
-          {
-            product_id: productId,
-            variant_id: variantId ?? null,
-            added_at: Date.now(),
-          },
-        ];
-        writeLocal(storeId, next);
-        return next;
-      });
+  // Shared optimistic write: compute next from the CURRENT shared value (not a
+  // stale closure), publish it to every subscriber immediately, then persist;
+  // roll back to the previous value if the write throws. Returning `null` from
+  // `compute` means "no change" (e.g. adding a duplicate) — skip entirely.
+  const applyOptimistic = useCallback(
+    (compute: (prev: WishlistItem[]) => WishlistItem[] | null) => {
+      const prev = readResource<WishlistItem[]>(key) ?? EMPTY;
+      const next = compute(prev);
+      if (next === null) return;
+      mutate(next, { revalidate: false });
+      try {
+        persistWishlist(storeId, next);
+      } catch {
+        mutate(prev, { revalidate: false });
+      }
     },
-    [storeId],
+    [key, storeId, mutate],
+  );
+
+  const addToWishlist = useCallback(
+    (productId: string, variantId?: string | null) =>
+      applyOptimistic((prev) =>
+        prev.some((it) => sameItem(it, productId, variantId))
+          ? null
+          : [
+              ...prev,
+              {
+                product_id: productId,
+                variant_id: variantId ?? null,
+                added_at: Date.now(),
+              },
+            ],
+      ),
+    [applyOptimistic],
   );
 
   const removeFromWishlist = useCallback(
-    (productId: string, variantId?: string | null) => {
-      setItems((prev) => {
+    (productId: string, variantId?: string | null) =>
+      applyOptimistic((prev) => {
         const next = prev.filter((it) => !sameItem(it, productId, variantId));
-        writeLocal(storeId, next);
-        return next;
-      });
-    },
-    [storeId],
+        return next.length === prev.length ? null : next;
+      }),
+    [applyOptimistic],
   );
 
-  const clear = useCallback(() => {
-    setItems([]);
-    writeLocal(storeId, []);
-  }, [storeId]);
+  const clear = useCallback(
+    () => applyOptimistic((prev) => (prev.length === 0 ? null : [])),
+    [applyOptimistic],
+  );
 
-  return { items, loading, has, addToWishlist, removeFromWishlist, clear };
+  return { items, loading: isLoading, has, addToWishlist, removeFromWishlist, clear };
 }

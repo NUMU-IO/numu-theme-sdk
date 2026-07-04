@@ -20,6 +20,7 @@ import { describe, expect, it } from "vitest";
 import { defineThemeEntry } from "../entry";
 import type { ThemeMountContext } from "../mount";
 import { RichText, sanitizeHtml } from "../components/RichText";
+import { useCachedResource } from "../lib/dataCache";
 import { computeGlobalStyleTokens } from "../utils/styleTokens";
 import type { ThemeSettingsV3 } from "../types/theme";
 import type { Store } from "../types/entities";
@@ -134,6 +135,25 @@ describe("computeGlobalStyleTokens (pure host-side SSR vars)", () => {
   it("emits scheme vars for object-valued settings and plain scalars", () => {
     expect(cssVars["--scheme-brand_scheme-background"]).toBe("#fff7ec");
     expect(cssVars["--theme-page_width"]).toBe("1240px");
+  });
+});
+
+describe("useCachedResource under plain Node (SSR-safe)", () => {
+  it("renders initialData and never fetches on the server", () => {
+    function Widget() {
+      const { data, isLoading } = useCachedResource<string>(
+        "ssr-key",
+        // If this ran on the server the render would reject; it must not — the
+        // fetch is effect-only and effects don't run under renderToString.
+        () => Promise.reject(new Error("fetcher must not run on the server")),
+        { initialData: "seed" },
+      );
+      return createElement("span", null, `${data}:${isLoading}`);
+    }
+    const html = renderToString(createElement(Widget));
+    // initialData is shown; isLoading is true (this hook WOULD fetch on the
+    // client), and no window/document access threw a ReferenceError.
+    expect(html).toContain("seed:true");
   });
 });
 

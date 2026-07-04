@@ -8,3 +8,5 @@ export { useThemeSettings } from "./useThemeSettings";
 export { useLocalization, useDirection, useTranslation } from "./useLocalization";
 export { usePage } from "./usePage";
 export { useSection, useSectionOptional, SectionContext } from "./useSection";
+export { useSectionGroup } from "./useSectionGroup";
+export type { SectionGroupInstance } from "./useSectionGroup";

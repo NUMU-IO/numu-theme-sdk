@@ -234,4 +234,16 @@ export interface Page {
   title: string;
   handle?: string;
   data?: Record<string, any>;
+  /**
+   * Resolved alternate template key for this page, when the storefront
+   * routed it to one — e.g. `"product.wholesale"` for a product using the
+   * `wholesale` template suffix. The base route type stays in `type`
+   * (`"product"`); `template` carries the FULL resolved key a theme uses to
+   * look up `themeSettings.templates[template]`.
+   *
+   * Absent when the page uses its default template (read `type` then).
+   * Additive/optional — themes and hosts predating this field are unaffected.
+   * Surfaced to themes via `usePage()?.template`.
+   */
+  template?: string;
 }

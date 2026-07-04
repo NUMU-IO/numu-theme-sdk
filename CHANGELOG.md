@@ -4,6 +4,91 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-04
+
+Template epic I3 — the SDK side of template overrides + global sections shared
+across pages. Additive: three new/extended surfaces, no breaking changes. As
+always, self-contained theme bundles freeze the SDK at build time, so themes
+must be **rebuilt + redeployed** to pick these up.
+
+### Added
+
+- **`useSectionGroup(group)`** — returns the ordered section instances for a
+  named section group ("header", "footer", or any custom global group) from
+  `themeSettings.section_groups[group]`. Each entry re-attaches its `id` (the
+  key it held in the group's `sections` map) so a theme can key its React list,
+  wire `<Section id={…}>` click-to-select, and dispatch the `type` through its
+  OWN registry. Returns a stable `[]` when there is no provider, no
+  `section_groups`, the group is absent, or its `order` is empty. Disabled
+  instances are included (the `disabled` flag is preserved); ids in `order` but
+  missing from `sections` are skipped. New export `useSectionGroup` + type
+  `SectionGroupInstance` (`SectionInstance & { id: string }`).
+
+  No `<GlobalSections>` component ships: the SDK has no section registry — a
+  theme builds its own via `collectSections` — so there is no generic renderer
+  to expose. Themes render the returned instances through their existing
+  registry, exactly as they already do for template sections.
+
+- **`Page.template` (+ `ThemeMountPage.template`)** — an optional resolved
+  alternate template key surfaced via `usePage()?.template`, e.g.
+  `"product.wholesale"` for a product routed to the `wholesale` template
+  suffix. Distinct from `useCurrentTemplate()` / `page.type`, which stay the
+  base route type (`"product"`); `template` carries the FULL key a theme uses
+  to look up `themeSettings.templates[template]`. Hosts forward it in the mount
+  context's `page.template`; `mountTheme` threads it to `NuMuProvider`'s new
+  optional `pageTemplate` prop, which publishes it on the `PageContext` value.
+  Omitted for pages on their default template, so themes/hosts predating the
+  field are unaffected.
+
+## [0.8.0] - 2026-07-04
+
+Phase 3 (shared client-data layer). Additive — a new primitive plus internal
+refactors of three hooks onto it. As always, self-contained theme bundles
+freeze the SDK at build time, so themes must be **rebuilt + redeployed** to pick
+these up.
+
+### Added
+
+- **`useCachedResource<T>(key, fetcher, opts?)`** — a tiny, dependency-free
+  SWR-style client cache (new `@numueg/theme-sdk` export, `src/lib/dataCache.ts`).
+  One module-level store keyed by string gives themes and SDK hooks:
+  - **Dedup** — the first consumer of a key starts the fetch and stashes the
+    in-flight promise; every other consumer that revalidates the same key while
+    it's pending joins that promise. N consumers → ONE network call.
+  - **Cross-instance sync** — every instance subscribes via
+    `useSyncExternalStore`; a fetch resolve or `mutate` rebuilds the entry's
+    snapshot and notifies ALL subscribers, so they re-render in lockstep.
+  - **Revalidate + cancellation** — each fetch reserves a monotonic sequence and
+    an `AbortController`; a forced fetch aborts the previous one and a result is
+    applied only if its sequence is still the latest, so an out-of-order
+    (superseded) response can never overwrite a newer one.
+  - **SSR-safe** — the fetch is effect-only (never runs under `renderToString`)
+    and the server snapshot returns `initialData` without touching the module
+    cache (no cross-request bleed).
+
+  New types: `CachedResource`, `CachedResourceState`, `CacheFetcher`,
+  `CacheMutator`, `MutateOptions`, `UseCachedResourceOptions`.
+
+### Fixed
+
+- **Wishlist hearts no longer desync.** `useWishlist` held the item list in
+  per-instance `useState`, so two `<Heart>`s for the same product each owned a
+  copy — adding via one never re-rendered the other. It now reads/writes ONE
+  shared `useCachedResource` entry (`numu_wishlist_<store_id>`), so an
+  add/remove anywhere reflows every heart. Writes are optimistic and roll back
+  if `localStorage` persistence throws (quota / private mode).
+- **`useApp` no longer applies out-of-order responses.** The per-instance fetch
+  had no cancellation, so a slow reply for a superseded slug (or a superseded
+  `refresh()`) could apply stale state over a newer one. It now runs through
+  `useCachedResource` (keyed `numu:app:<store_id>:<slug>`) with an AbortSignal
+  and seq-guarded application; N consumers of one slug also share a single
+  request. `loading` reflects the first load only — `refresh()` now revalidates
+  in the background while keeping the last-good data (no skeleton flash).
+- **`useRelatedProducts` dedupes + cancels.** Two related-products sections on
+  one PDP shared no state and each refetched; a rapid product switch could race.
+  Now keyed by `numu:related:<productId>:<limit>` through the shared cache, with
+  AbortSignal-backed cancellation of superseded fetches. Public shape unchanged.
+
 ## [0.7.0] - 2026-07-04
 
 Phase 2 (correctness debt). Changes are additive or bug fixes; note that

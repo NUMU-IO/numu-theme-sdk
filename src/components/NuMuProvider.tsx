@@ -50,6 +50,15 @@ interface NuMuProviderProps {
    */
   currentTemplate?: string;
   /**
+   * I3 — resolved alternate template key for the current page (e.g.
+   * `"product.wholesale"`) when the storefront routed it to a template
+   * suffix. Published on the synthesized `PageContext` value so themes read
+   * it via `usePage()?.template`. Distinct from `currentTemplate`, which is
+   * the base route type (`"product"`). Omit for pages on their default
+   * template; additive, so themes/hosts predating it are unaffected.
+   */
+  pageTemplate?: string;
+  /**
    * Pre-fetched product list for the current page. Themes that call
    * `useProducts()` will read these from PageContext without needing
    * `fetchIfMissing: true`. Hosts typically populate this from their
@@ -266,6 +275,7 @@ export function NuMuProvider({
   locale: initialLocale,
   translations: initialTranslations,
   currentTemplate = "home",
+  pageTemplate,
   initialProducts,
   initialCollections,
   navigation,
@@ -282,12 +292,16 @@ export function NuMuProvider({
       ({
         type: currentTemplate,
         title: store?.name ?? "",
+        // I3 — resolved alternate template key (e.g. "product.wholesale"),
+        // surfaced via usePage()?.template. Omitted when undefined so a
+        // page on its default template exposes no `template` field.
+        ...(pageTemplate ? { template: pageTemplate } : {}),
         data: {
           products: initialProducts ?? [],
           collections: initialCollections ?? [],
         },
       }) as import("../types/entities").Page,
-    [currentTemplate, store?.name, initialProducts, initialCollections],
+    [currentTemplate, pageTemplate, store?.name, initialProducts, initialCollections],
   );
   const [cart, setCart] = useState<Cart>(
     initialCart || { ...EMPTY_CART, currency: store.currency },
