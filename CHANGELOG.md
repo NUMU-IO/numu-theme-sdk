@@ -4,6 +4,55 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-04
+
+Phase 3 (shared client-data layer). Additive — a new primitive plus internal
+refactors of three hooks onto it. As always, self-contained theme bundles
+freeze the SDK at build time, so themes must be **rebuilt + redeployed** to pick
+these up.
+
+### Added
+
+- **`useCachedResource<T>(key, fetcher, opts?)`** — a tiny, dependency-free
+  SWR-style client cache (new `@numueg/theme-sdk` export, `src/lib/dataCache.ts`).
+  One module-level store keyed by string gives themes and SDK hooks:
+  - **Dedup** — the first consumer of a key starts the fetch and stashes the
+    in-flight promise; every other consumer that revalidates the same key while
+    it's pending joins that promise. N consumers → ONE network call.
+  - **Cross-instance sync** — every instance subscribes via
+    `useSyncExternalStore`; a fetch resolve or `mutate` rebuilds the entry's
+    snapshot and notifies ALL subscribers, so they re-render in lockstep.
+  - **Revalidate + cancellation** — each fetch reserves a monotonic sequence and
+    an `AbortController`; a forced fetch aborts the previous one and a result is
+    applied only if its sequence is still the latest, so an out-of-order
+    (superseded) response can never overwrite a newer one.
+  - **SSR-safe** — the fetch is effect-only (never runs under `renderToString`)
+    and the server snapshot returns `initialData` without touching the module
+    cache (no cross-request bleed).
+
+  New types: `CachedResource`, `CachedResourceState`, `CacheFetcher`,
+  `CacheMutator`, `MutateOptions`, `UseCachedResourceOptions`.
+
+### Fixed
+
+- **Wishlist hearts no longer desync.** `useWishlist` held the item list in
+  per-instance `useState`, so two `<Heart>`s for the same product each owned a
+  copy — adding via one never re-rendered the other. It now reads/writes ONE
+  shared `useCachedResource` entry (`numu_wishlist_<store_id>`), so an
+  add/remove anywhere reflows every heart. Writes are optimistic and roll back
+  if `localStorage` persistence throws (quota / private mode).
+- **`useApp` no longer applies out-of-order responses.** The per-instance fetch
+  had no cancellation, so a slow reply for a superseded slug (or a superseded
+  `refresh()`) could apply stale state over a newer one. It now runs through
+  `useCachedResource` (keyed `numu:app:<store_id>:<slug>`) with an AbortSignal
+  and seq-guarded application; N consumers of one slug also share a single
+  request. `loading` reflects the first load only — `refresh()` now revalidates
+  in the background while keeping the last-good data (no skeleton flash).
+- **`useRelatedProducts` dedupes + cancels.** Two related-products sections on
+  one PDP shared no state and each refetched; a rapid product switch could race.
+  Now keyed by `numu:related:<productId>:<limit>` through the shared cache, with
+  AbortSignal-backed cancellation of superseded fetches. Public shape unchanged.
+
 ## [0.7.0] - 2026-07-04
 
 Phase 2 (correctness debt). Changes are additive or bug fixes; note that

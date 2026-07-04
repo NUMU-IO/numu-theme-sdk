@@ -66,6 +66,20 @@ export { useRelatedProducts } from "./hooks/useRelatedProducts";
 export type { RelatedProductsState } from "./hooks/useRelatedProducts";
 export type { ShopWithHelpers } from "./hooks/useShop";
 
+// Phase 3 — shared client-data layer. An SWR-style, dependency-free cache that
+// dedupes in-flight requests by key across all hook instances, keeps them in
+// sync, and seq-guards + aborts superseded fetches. `useWishlist` / `useApp` /
+// `useRelatedProducts` are built on it; themes can use it for their own data.
+export { useCachedResource } from "./lib/dataCache";
+export type {
+  CachedResource,
+  CachedResourceState,
+  CacheFetcher,
+  CacheMutator,
+  MutateOptions,
+  UseCachedResourceOptions,
+} from "./lib/dataCache";
+
 // Size charts — resolve per-product / store-default charts with one precedence.
 export {
   useProductSizeChart,
