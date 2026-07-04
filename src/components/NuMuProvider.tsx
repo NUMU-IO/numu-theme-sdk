@@ -16,6 +16,7 @@ import {
   CurrentTemplateContext,
   PageContext,
   NavigationContext,
+  CurrencyContext,
 } from "../contexts";
 import {
   CustomerActionsContext,
@@ -23,7 +24,13 @@ import {
 } from "../contexts/customer-actions";
 import type { Store, Cart, CartItem, Customer } from "../types/entities";
 import type { ThemeSettingsV3 } from "../types/theme";
-import type { LocalizationState, MenuItemData } from "../contexts";
+import type {
+  LocalizationState,
+  MenuItemData,
+  CartMutationResult,
+  CurrencyConfig,
+  CurrencyState,
+} from "../contexts";
 
 const RTL_LOCALES = ["ar", "he", "fa", "ur"];
 
@@ -154,6 +161,25 @@ function readCsrfCookie(): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+// ── Currency cookie (numu_currency) ────────────────────────────────────────
+// Persists the visitor's presentment-currency choice so it survives cross-page
+// navigation. Owned by NuMuProvider (was previously in useCurrency).
+const CURRENCY_COOKIE_NAME = "numu_currency";
+const CURRENCY_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+
+function readCurrencyCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(
+    new RegExp(`(?:^|;\\s*)${CURRENCY_COOKIE_NAME}=([^;]+)`),
+  );
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function writeCurrencyCookie(value: string): void {
+  if (typeof document === "undefined") return;
+  document.cookie = `${CURRENCY_COOKIE_NAME}=${encodeURIComponent(value)}; path=/; max-age=${CURRENCY_COOKIE_MAX_AGE}; SameSite=Lax`;
+}
+
 /**
  * postCartMutation — shared helper for cart writes.
  *
@@ -172,16 +198,22 @@ function readCsrfCookie(): string | null {
  *      Redis so a double-clicked Add-to-Cart only mutates state once.
  *      Wire format is stable; backend honoring it is opt-in.
  *
- * Returns the latest cart state (whatever the server says), but the
- * caller shouldn't blindly setState from it — `applyCart` already
- * filtered.
+ * Resolves a `CartMutationResult` so the caller can tell success from
+ * failure. Previously this swallowed `!res.ok` with a bare `return`, so an
+ * out-of-stock / validation / 403 rejection was indistinguishable from a
+ * successful write — and `addItem` fired its `add_to_cart` analytics event
+ * regardless. Now a non-2xx resolves `{ ok: false, status, message }` (and
+ * does NOT apply a cart), so themes can surface the error and analytics can
+ * be gated on `ok`. On success it applies the cart and resolves
+ * `{ ok: true, status }`. Network throws still reject (callers that relied on
+ * try/catch keep that behavior); `mutate` wraps this and always sets loading.
  */
 async function postCartMutation(
   endpoint: string,
   body: unknown,
   applyCart: (cart: Cart) => void,
   reserveToken: () => number,
-): Promise<void> {
+): Promise<CartMutationResult> {
   const token = reserveToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -201,12 +233,29 @@ async function postCartMutation(
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  if (!res.ok) return;
+  if (!res.ok) {
+    // Non-2xx (OOS, validation, 403 CSRF, …). Pull the backend's error text
+    // when the body parses so a theme can show a real message; never apply a
+    // cart from a failed write.
+    let message: string | undefined;
+    try {
+      const err = (await res.json()) as Record<string, unknown> | null;
+      if (err && typeof err === "object") {
+        const m = err.message ?? err.error ?? err.detail;
+        if (typeof m === "string") message = m;
+      }
+    } catch {
+      // Non-JSON / empty error body — status alone carries the signal.
+    }
+    void token;
+    return { ok: false, status: res.status, message };
+  }
   const json = await res.json();
   applyCart(unwrapCart(json));
   // Token was actually consumed on entry; applyCart enforces ordering
   // via the closure below.
   void token;
+  return { ok: true, status: res.status };
 }
 
 export function NuMuProvider({
@@ -514,11 +563,11 @@ export function NuMuProvider({
   );
 
   const mutate = useCallback(
-    async (endpoint: string, body: unknown): Promise<void> => {
+    async (endpoint: string, body: unknown): Promise<CartMutationResult> => {
       const token = reserveToken();
       setLoading(true);
       try {
-        await postCartMutation(
+        return await postCartMutation(
           endpoint,
           body,
           buildApplyCart(token),
@@ -534,7 +583,11 @@ export function NuMuProvider({
   // ── Cart actions ───────────────────────────────────────────────────────
 
   const addItem = useCallback(
-    async (productId: string, variantId?: string, quantity?: number) => {
+    async (
+      productId: string,
+      variantId?: string,
+      quantity?: number,
+    ): Promise<CartMutationResult> => {
       // Shared event id for Meta AddToCart dedup: the host /api/cart/add route
       // fires the CAPI event with this id, and the host <MetaPixel> bridge
       // fires the matching browser fbq from the CustomEvent below.
@@ -543,12 +596,18 @@ export function NuMuProvider({
           ? crypto.randomUUID()
           : `${Date.now()}`;
       const qty = quantity || 1;
-      await mutate("/api/cart/add", {
+      const result = await mutate("/api/cart/add", {
         product_id: productId,
         variant_id: variantId,
         quantity: qty,
         _event_id: eventId,
       });
+      // Gate the AddToCart analytics on a SUCCESSFUL write. This previously
+      // fired unconditionally, so an out-of-stock / validation / 403 rejection
+      // still reported a phantom add_to_cart to Meta/GA and inflated the
+      // funnel. On failure, return the result so the theme can react (toast,
+      // "out of stock", …) without a spurious conversion event.
+      if (!result.ok) return result;
       // Browser-side AddToCart signal — CAPI is fired server-side by the cart
       // route with the same id. Dispatched directly (not via useAnalytics) so
       // we control the event_id and avoid a duplicate /track POST.
@@ -571,44 +630,39 @@ export function NuMuProvider({
       } catch {
         /* CustomEvent unsupported — server CAPI still covers the event */
       }
+      return result;
     },
     [mutate],
   );
 
   const removeItem = useCallback(
-    async (itemId: string) => {
-      await mutate("/api/cart/remove", { item_id: itemId });
-    },
+    (itemId: string) => mutate("/api/cart/remove", { item_id: itemId }),
     [mutate],
   );
 
   const updateQuantity = useCallback(
-    async (itemId: string, quantity: number) => {
-      await mutate("/api/cart/update", { item_id: itemId, quantity });
-    },
+    (itemId: string, quantity: number) =>
+      mutate("/api/cart/update", { item_id: itemId, quantity }),
     [mutate],
   );
 
   const applyDiscount = useCallback(
-    async (code: string) => {
-      await mutate("/api/cart/discount", { code });
-    },
+    (code: string) => mutate("/api/cart/discount", { code }),
     [mutate],
   );
 
-  const removeDiscount = useCallback(async () => {
+  const removeDiscount = useCallback(
     // DELETE — postCartMutation interprets undefined body as DELETE.
-    await mutate("/api/cart/discount", undefined);
-  }, [mutate]);
+    () => mutate("/api/cart/discount", undefined),
+    [mutate],
+  );
 
   /**
    * Persist a customer note on the cart. Round-trips to the backend so the
    * note survives reload (the previous local-only behavior was a footgun).
    */
   const updateNote = useCallback(
-    async (note: string) => {
-      await mutate("/api/cart/update", { note });
-    },
+    (note: string) => mutate("/api/cart/update", { note }),
     [mutate],
   );
 
@@ -818,21 +872,122 @@ export function NuMuProvider({
     ],
   );
 
+  // ── Multi-currency presentment (fetched ONCE here) ─────────────────────
+  // Lifted out of useCurrency() so a single fetch + a single selection back
+  // EVERY <Money>/useMoney()/<CurrencySwitcher> on the page. Before this, each
+  // useCurrency() caller fetched its own copy and held selection in local
+  // state, so a <CurrencySwitcher> change never reached the price tags.
+  const [currencyConfig, setCurrencyConfig] = useState<CurrencyConfig | null>(
+    null,
+  );
+  const [currencyLoading, setCurrencyLoading] = useState(true);
+  // Empty until the fetch resolves cookie→default→base. Starts empty on BOTH
+  // server and client so the first client render matches the server markup
+  // (hydration-safe); the effect sets the real value AFTER mount, and any
+  // resulting price re-format is a post-hydration update.
+  const [currencySelected, setCurrencySelected] = useState<string>("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/storefront/currencies", {
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) throw new Error(`currencies: HTTP ${res.status}`);
+        const body = (await res.json()) as { data: CurrencyConfig };
+        if (cancelled) return;
+        setCurrencyConfig(body.data);
+        // cookie → default_presentment → base, validated against presentment
+        // so a stale cookie can't lock the visitor onto a removed currency.
+        const cookie = readCurrencyCookie();
+        const valid =
+          cookie && body.data.presentment?.includes(cookie) ? cookie : null;
+        setCurrencySelected(
+          valid || body.data.default_presentment || body.data.base,
+        );
+      } catch {
+        if (cancelled) return;
+        setCurrencyConfig(null);
+        setCurrencySelected(store.currency || "EGP");
+      } finally {
+        if (!cancelled) setCurrencyLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [store.id, store.currency]);
+
+  const currencyRates = useMemo<Record<string, number>>(() => {
+    const out: Record<string, number> = {};
+    if (!currencyConfig) return out;
+    for (const [k, v] of Object.entries(currencyConfig.rates)) {
+      const n = Number.parseFloat(v);
+      if (Number.isFinite(n)) out[k] = n;
+    }
+    return out;
+  }, [currencyConfig]);
+
+  const convertCurrency = useCallback(
+    (cents: number, target?: string): number => {
+      if (!currencyConfig) return cents;
+      const to = target || currencySelected;
+      if (!to || to === currencyConfig.base) return cents;
+      const rate = currencyRates[to];
+      if (!rate || !Number.isFinite(rate)) return cents;
+      return Math.round(cents * rate);
+    },
+    [currencyConfig, currencyRates, currencySelected],
+  );
+
+  const setCurrency = useCallback((currency: string) => {
+    setCurrencySelected(currency);
+    writeCurrencyCookie(currency);
+  }, []);
+
+  const currencyValue = useMemo<CurrencyState>(
+    () => ({
+      base: currencyConfig?.base || store.currency || "EGP",
+      selected:
+        currencySelected || currencyConfig?.base || store.currency || "EGP",
+      presentment: currencyConfig?.presentment || [store.currency || "EGP"],
+      rates: currencyRates,
+      autoConvert: Boolean(currencyConfig?.auto_convert),
+      loading: currencyLoading,
+      setSelected: setCurrency,
+      convert: convertCurrency,
+    }),
+    [
+      currencyConfig,
+      currencySelected,
+      currencyRates,
+      currencyLoading,
+      store.currency,
+      setCurrency,
+      convertCurrency,
+    ],
+  );
+
   return (
     <ShopContext.Provider value={store}>
       <ThemeSettingsContext.Provider value={themeSettings}>
         <CurrentTemplateContext.Provider value={currentTemplate}>
           <PageContext.Provider value={pageValue}>
             <LocalizationContext.Provider value={localization}>
-              <CartContext.Provider value={cartValue}>
-                <CustomerContext.Provider value={customerState}>
-                  <CustomerActionsContext.Provider value={customerActions}>
-                    <NavigationContext.Provider value={navigation ?? {}}>
-                      {children}
-                    </NavigationContext.Provider>
-                  </CustomerActionsContext.Provider>
-                </CustomerContext.Provider>
-              </CartContext.Provider>
+              <CurrencyContext.Provider value={currencyValue}>
+                <CartContext.Provider value={cartValue}>
+                  <CustomerContext.Provider value={customerState}>
+                    <CustomerActionsContext.Provider value={customerActions}>
+                      <NavigationContext.Provider value={navigation ?? {}}>
+                        {children}
+                      </NavigationContext.Provider>
+                    </CustomerActionsContext.Provider>
+                  </CustomerContext.Provider>
+                </CartContext.Provider>
+              </CurrencyContext.Provider>
             </LocalizationContext.Provider>
           </PageContext.Provider>
         </CurrentTemplateContext.Provider>

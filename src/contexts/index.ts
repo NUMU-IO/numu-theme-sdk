@@ -34,10 +34,49 @@ export interface LocalizationState {
   availableLocales: string[];
 }
 
+/**
+ * Result of a cart mutation (add / remove / update / discount / note).
+ *
+ * `ok` mirrors the HTTP result: `false` for any non-2xx response — an
+ * out-of-stock or validation rejection, a 403 CSRF failure, etc. — so a
+ * theme can surface the failure (toast, inline error) instead of assuming
+ * the write landed. `status` is the HTTP status (0 for a network throw that
+ * the caller catches); `message` carries the backend's error text when the
+ * error body parses.
+ *
+ * Back-compat: the cart methods previously resolved `Promise<void>`; callers
+ * that `await` them and ignore the return keep working unchanged — the
+ * resolved value is purely additive.
+ */
+export interface CartMutationResult {
+  ok: boolean;
+  status: number;
+  message?: string;
+}
+
+export interface CartContextValue {
+  cart: Cart;
+  addItem: (
+    productId: string,
+    variantId?: string,
+    quantity?: number,
+  ) => Promise<CartMutationResult>;
+  removeItem: (itemId: string) => Promise<CartMutationResult>;
+  updateQuantity: (
+    itemId: string,
+    quantity: number,
+  ) => Promise<CartMutationResult>;
+  applyDiscount: (code: string) => Promise<CartMutationResult>;
+  removeDiscount: () => Promise<CartMutationResult>;
+  updateNote: (note: string) => Promise<CartMutationResult>;
+  clearCart: () => Promise<void>;
+  loading: boolean;
+}
+
 export const ShopContext = createContext<Store | null>(null);
 export const ProductContext = createContext<Product | null>(null);
 export const CollectionContext = createContext<Collection | null>(null);
-export const CartContext = createContext<{ cart: Cart; addItem: (productId: string, variantId?: string, quantity?: number) => Promise<void>; removeItem: (itemId: string) => Promise<void>; updateQuantity: (itemId: string, quantity: number) => Promise<void>; applyDiscount: (code: string) => Promise<void>; removeDiscount: () => Promise<void>; updateNote: (note: string) => Promise<void>; clearCart: () => Promise<void>; loading: boolean } | null>(null);
+export const CartContext = createContext<CartContextValue | null>(null);
 export const CustomerContext = createContext<Customer | null>(null);
 export const ThemeSettingsContext = createContext<ThemeSettingsV3 | null>(null);
 export const LocalizationContext = createContext<LocalizationState | null>(null);
@@ -90,3 +129,52 @@ export interface MenuItemData {
 export const NavigationContext = createContext<Record<string, MenuItemData[]>>(
   {},
 );
+
+/**
+ * Multi-currency presentment config, as returned by
+ * `GET /api/storefront/currencies`. Display-only — the store's *capture*
+ * currency never changes mid-session; this just lets visitors browse prices
+ * in a currency they recognize.
+ */
+export interface CurrencyConfig {
+  base: string;
+  default_presentment: string;
+  presentment: string[];
+  rates: Record<string, string>; // Decimal-as-string
+  auto_convert: boolean;
+}
+
+/**
+ * The value `useCurrency()` returns and `CurrencyContext` carries.
+ *
+ * `convert(cents, target?)` returns the converted **cents** in `target`
+ * (defaults to `selected`), using the API rates; returns the input unchanged
+ * when no rate exists (theme renders base — better than a wrong number).
+ */
+export interface CurrencyState {
+  base: string;
+  selected: string;
+  presentment: string[];
+  rates: Record<string, number>;
+  autoConvert: boolean;
+  loading: boolean;
+  setSelected: (currency: string) => void;
+  convert: (cents: number, target?: string) => number;
+}
+
+/**
+ * Phase 2 (correctness) — multi-currency lifted into a provider context.
+ *
+ * Previously `useCurrency()` fetched `/api/storefront/currencies` and held
+ * the selected currency in per-instance `useState`, so each `<Money>`,
+ * `useMoney()` and `<CurrencySwitcher>` owned an INDEPENDENT copy: switching
+ * currency in the switcher never reached the price tags, and every consumer
+ * re-fetched. `NuMuProvider` now fetches ONCE and publishes a single
+ * `CurrencyState` here, so a `<CurrencySwitcher>` change re-renders every
+ * `<Money>` on the page without a reload.
+ *
+ * Null when no provider is present (SSR before hydrate, or a theme mounted
+ * outside `NuMuProvider`); `useCurrency()` then falls back to a base-only,
+ * no-convert state derived from the store currency so `<Money>` still renders.
+ */
+export const CurrencyContext = createContext<CurrencyState | null>(null);

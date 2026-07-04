@@ -16,7 +16,17 @@ export default defineConfig({
   },
   format: ["esm", "cjs"],
   dts: true,
-  splitting: false,
+  // MUST stay `true`. With multiple entries, `splitting: false` makes each
+  // entry (index, v2-compat, …) bundle its OWN copy of every module it
+  // imports — including `src/contexts` and its ~11 `createContext()` calls.
+  // That handed `dist/v2-compat.*` a SECOND set of context objects, so
+  // `useV2Products()`/`useV2Theme()` read null contexts that `NuMuProvider`
+  // (in `dist/index.*`) never populated, silently breaking the whole V2→V3
+  // migration shim. Splitting hoists the contexts into ONE shared chunk that
+  // both entries import, so every hook resolves the SAME context instance the
+  // provider fills — for esm AND cjs. The pure validation/verify/normalize
+  // entries stay React-free (their shared chunk imports no React).
+  splitting: true,
   sourcemap: true,
   clean: true,
   external: ["react", "react-dom"],
