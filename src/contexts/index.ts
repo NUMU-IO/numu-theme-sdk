@@ -60,6 +60,9 @@ export interface CartContextValue {
     productId: string,
     variantId?: string,
     quantity?: number,
+    /** Picker axes ({Color: "Black", Size: "L"}) — variant_name fallback for
+     *  products whose variant rows carry no option_values. */
+    selectedOptions?: Record<string, string>,
   ) => Promise<CartMutationResult>;
   removeItem: (itemId: string) => Promise<CartMutationResult>;
   updateQuantity: (

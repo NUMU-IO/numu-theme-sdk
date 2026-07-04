@@ -106,6 +106,14 @@ export {
 } from "./utils/variants";
 export { useVariantSelection } from "./hooks/useVariantSelection";
 export type { UseVariantSelection } from "./hooks/useVariantSelection";
+// Selection registry — useVariantSelection publishes the live picker axes
+// here and addItem reads them back as the cart line's variant_name fallback
+// (legacy products with no resolvable variant rows). Exported for themes
+// that build their own add-to-cart buttons outside the SDK primitives.
+export {
+  publishVariantSelection,
+  readVariantSelection,
+} from "./utils/selectionRegistry";
 export type { ProductOption } from "./types/entities";
 
 // Phase 8.3 — gift card balance lookup for checkout.
@@ -164,7 +172,8 @@ export { HeroMedia } from "./components/HeroMedia";
 export type { HeroMediaProps } from "./components/HeroMedia";
 export { Logo } from "./components/Logo";
 export type { LogoProps } from "./components/Logo";
-export { Link } from "./components/Link";
+export { Link, NAVIGATE_EVENT, requestNavigate } from "./components/Link";
+export type { NavigateEventDetail } from "./components/Link";
 export { AddToCartButton } from "./components/AddToCartButton";
 export { Section, Block } from "./components/Section";
 export { Form } from "./components/Form";

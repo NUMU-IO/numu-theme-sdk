@@ -9,6 +9,13 @@ interface AddToCartButtonProps
   product: Product;
   variant?: ProductVariant;
   quantity?: number;
+  /**
+   * Picker axes to persist on the cart line ({Color: "Black"}). Optional —
+   * when omitted, the button reads the live useVariantSelection state for
+   * this product from the SDK registry, so existing themes get the variant
+   * label end-to-end (cart → checkout → order → email) with no changes.
+   */
+  selectedOptions?: Record<string, string>;
   /** Custom labels — fallbacks are English defaults. */
   label?: ReactNode;
   loadingLabel?: ReactNode;
@@ -36,6 +43,7 @@ export function AddToCartButton({
   product,
   variant,
   quantity = 1,
+  selectedOptions,
   label = "Add to cart",
   loadingLabel = "Adding…",
   soldOutLabel = "Sold out",
@@ -64,7 +72,10 @@ export function AddToCartButton({
     if (state === "adding") return;
     setState("adding");
     try {
-      await addItem(product.id, variant?.id, quantity);
+      // addItem itself falls back to the live useVariantSelection state for
+      // this product when no explicit axes are passed; the backend only uses
+      // them when the variant row can't name itself (empty option_values).
+      await addItem(product.id, variant?.id, quantity, selectedOptions);
       setState("idle");
       onAdded?.(product, variant);
     } catch {

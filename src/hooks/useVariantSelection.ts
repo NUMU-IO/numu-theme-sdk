@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   availableValues,
   defaultVariant,
   findVariantByOptions,
 } from "../utils/variants";
+import { publishVariantSelection } from "../utils/selectionRegistry";
 import type { Product, ProductVariant } from "../types/entities";
 
 export interface UseVariantSelection {
@@ -40,7 +41,7 @@ export interface UseVariantSelection {
  * state can pass `autoSelect: false`.
  */
 export function useVariantSelection(
-  product: Pick<Product, "options" | "variants">,
+  product: Pick<Product, "options" | "variants"> & { id?: string },
   opts: { autoSelect?: boolean } = {},
 ): UseVariantSelection {
   const autoSelect = opts.autoSelect ?? true;
@@ -65,6 +66,15 @@ export function useVariantSelection(
     () => findVariantByOptions(product, selection),
     [product, selection],
   );
+
+  // Mirror the live selection into the module registry so AddToCartButton
+  // can attach it to the cart write even when no variant row matches
+  // (legacy products: axes in attributes JSON, placeholder variant with
+  // empty option_values). Themes pass full product objects, so `id` is
+  // present in practice; the widened param type keeps this non-breaking.
+  useEffect(() => {
+    publishVariantSelection(product.id, selection);
+  }, [product.id, selection]);
 
   const availability = useMemo(
     () => availableValues(product, selection),
