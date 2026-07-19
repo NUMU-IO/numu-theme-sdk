@@ -248,6 +248,10 @@ export type { FocalSrcOptions } from "./utils/imageTransform";
 // one implementation. Default fit is `cover` (Shopify-style fill-the-frame).
 export { applyImageTransform, asImageTransform } from "./utils/imageTransform";
 export type { ImageTransform } from "./utils/imageTransform";
+
+// Storefront route builders — the URL shape is platform knowledge, so themes
+// should ask for a href rather than hardcode the host's routing.
+export { productHref, collectionHref } from "./utils/routes";
 // Phase 3.5 — global settings (colors/fonts/layout) → CSS custom properties.
 export {
   applyGlobalStyleTokens,
