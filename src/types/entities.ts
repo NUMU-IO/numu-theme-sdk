@@ -1,3 +1,18 @@
+/**
+ * A merchant-defined typed field (metafield) exposed on a storefront entity.
+ * Only PUBLIC metafields reach the storefront; the value is already coerced
+ * to its declared type by the platform (string/number/boolean/date/json/url).
+ * Themes usually bind these via a dynamic source
+ * (`product.metafield:{namespace}.{key}`) rather than reading the array, but
+ * the typed array is available for direct rendering (e.g. a spec table).
+ */
+export interface Metafield {
+  namespace: string;
+  key: string;
+  type: string;
+  value: unknown;
+}
+
 /** Core store entity */
 export interface Store {
   id: string;
@@ -46,6 +61,8 @@ export interface Product {
    * shape is open-ended; `useProductSizeChart` narrows the size-chart slot.
    */
   attributes?: Record<string, unknown>;
+  /** Public merchant-defined typed fields. See {@link Metafield}. */
+  metafields?: Metafield[];
 }
 
 /**
@@ -143,6 +160,8 @@ export interface Collection {
   image_url?: string;
   product_count: number;
   products?: Product[];
+  /** Public merchant-defined typed fields. See {@link Metafield}. */
+  metafields?: Metafield[];
 }
 
 /** Cart entity */
