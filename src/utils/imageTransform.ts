@@ -36,15 +36,22 @@ export function asImageTransform(v: unknown): ImageTransform | undefined {
  * CSS reproducing the transform on an `<img>` that fills a fixed-aspect,
  * overflow-hidden frame. Default fit is `cover` (Shopify-style: the image
  * fills its frame, cropping to the focal point) — pass `"contain"` only for
- * placements that must show the whole image (e.g. a logo). Empty object when
- * there is no transform AND the caller wants the section's own className to
- * decide; pass an explicit `fit` to force a default even without a transform.
+ * placements that must show the whole image (e.g. a logo).
+ *
+ * **No transform → empty object.** An inline style beats a className, so
+ * returning `{ objectFit: fit }` here would silently override a placement's
+ * own `object-contain` / `object-none` class on every untransformed image —
+ * which is most merchant images. The section's className stays in charge; a
+ * caller that needs a guaranteed fit supplies it itself, e.g.
+ * `{ objectFit: fit, ...applyImageTransform(t, fit) }` (see `HeroMedia`).
+ * This matches `Image.tsx`'s untransformed branch and the behaviour every
+ * theme's local copy has shipped with.
  */
 export function applyImageTransform(
   t: ImageTransform | undefined | null,
   fit: "cover" | "contain" = "cover",
 ): CSSProperties {
-  if (!t) return { objectFit: fit };
+  if (!t) return {};
   const fx = Math.round(_clampT(t.focal?.x ?? 0.5, 0, 1) * 1e4) / 100;
   const fy = Math.round(_clampT(t.focal?.y ?? 0.5, 0, 1) * 1e4) / 100;
   const zoom = _clampT(t.zoom ?? 1, 1, 4);

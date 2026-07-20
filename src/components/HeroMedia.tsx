@@ -215,7 +215,13 @@ export function HeroMedia({
     ? activeUrl
     : focalSrc(activeUrl, { width: activeBase, ...activeCrop });
   const activeSrcSet = rawFallback ? undefined : heroSrcSet(activeUrl, activeCrop);
-  const fitStyle = applyImageTransform(useMobile ? mobileTransform ?? transform : transform, fit);
+  // A hero always fills its frame, so the fit is supplied here rather than by
+  // `applyImageTransform` — that helper returns {} for an untransformed image
+  // so it never overrides a section's own object-fit class (see its docs).
+  const fitStyle: CSSProperties = {
+    objectFit: fit,
+    ...applyImageTransform(useMobile ? mobileTransform ?? transform : transform, fit),
+  };
 
   return (
     <img

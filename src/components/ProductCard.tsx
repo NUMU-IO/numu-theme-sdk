@@ -6,6 +6,7 @@ import { Image } from "./Image";
 import { Money } from "./Money";
 import { Link } from "./Link";
 import { AddToCartButton } from "./AddToCartButton";
+import { productHref } from "../utils/routes";
 
 /**
  * Opinionated product tile.
@@ -72,7 +73,9 @@ export function ProductCard({
   slots,
   imageSizes,
 }: ProductCardProps) {
-  const target = href ?? `/products/${product.slug}`;
+  // Same builder the themes use, so the card and a theme's own links can't
+  // disagree about the product route.
+  const target = href ?? productHref(product.slug);
   const firstImage = product.images?.[0];
   const inStock = product.in_stock;
 

@@ -113,7 +113,25 @@ export function resolveSourcePath(
   }
 }
 
+/** Merchant-defined field: `metafield:{namespace}.{key}`. Only public
+ *  metafields reach the storefront; missing → null (setting default renders). */
+function resolveMetafield(
+  metafields: { namespace: string; key: string; value: unknown }[] | undefined,
+  field: string,
+): unknown {
+  const address = field.slice("metafield:".length);
+  const dot = address.indexOf(".");
+  if (dot === -1) return null;
+  const namespace = address.slice(0, dot);
+  const key = address.slice(dot + 1);
+  const hit = (metafields ?? []).find(
+    (m) => m.namespace === namespace && m.key === key,
+  );
+  return hit ? (hit.value ?? null) : null;
+}
+
 function resolveProductField(p: Product, field: string): unknown {
+  if (field.startsWith("metafield:")) return resolveMetafield(p.metafields, field);
   switch (field) {
     case "title":
     case "name":
@@ -140,6 +158,7 @@ function resolveProductField(p: Product, field: string): unknown {
 }
 
 function resolveCollectionField(c: Collection, field: string): unknown {
+  if (field.startsWith("metafield:")) return resolveMetafield(c.metafields, field);
   switch (field) {
     case "title":
     case "name":

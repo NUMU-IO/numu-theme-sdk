@@ -260,6 +260,40 @@ describe("resolveSettingsMap — collection context + passthrough shapes", () =>
   });
 });
 
+describe("resolveSourcePath — metafields (merchant-defined fields)", () => {
+  const withMeta: Product = {
+    ...product,
+    metafields: [
+      { namespace: "specs", key: "fabric", type: "single_line_text", value: "Cotton" },
+      { namespace: "specs", key: "warranty_months", type: "number", value: 24 },
+    ],
+  };
+  const collWithMeta: Collection = {
+    ...collection,
+    metafields: [
+      { namespace: "custom", key: "theme_color", type: "single_line_text", value: "gold" },
+    ],
+  };
+  it("resolves a product metafield by namespace.key", () => {
+    expect(resolveSourcePath("product.metafield:specs.fabric", { product: withMeta })).toBe("Cotton");
+    expect(resolveSourcePath("product.metafield:specs.warranty_months", { product: withMeta })).toBe(24);
+  });
+  it("resolves a collection metafield", () => {
+    expect(
+      resolveSourcePath("collection.metafield:custom.theme_color", { collection: collWithMeta }),
+    ).toBe("gold");
+  });
+  it("returns null for a metafield that isn't set (missing-value → default renders)", () => {
+    expect(resolveSourcePath("product.metafield:specs.unknown", { product: withMeta })).toBeNull();
+  });
+  it("returns null when the product carries no metafields at all", () => {
+    expect(resolveSourcePath("product.metafield:specs.fabric", { product })).toBeNull();
+  });
+  it("returns null for a malformed metafield address (no dot)", () => {
+    expect(resolveSourcePath("product.metafield:nodot", { product: withMeta })).toBeNull();
+  });
+});
+
 describe("resolveDynamicValue — non-source objects pass through", () => {
   it("returns an image-picker { url, alt } object unchanged", () => {
     const img = { url: "x.png", alt: "x" };

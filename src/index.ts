@@ -248,6 +248,15 @@ export type { FocalSrcOptions } from "./utils/imageTransform";
 // one implementation. Default fit is `cover` (Shopify-style fill-the-frame).
 export { applyImageTransform, asImageTransform } from "./utils/imageTransform";
 export type { ImageTransform } from "./utils/imageTransform";
+
+// Storefront route builders — the URL shape is platform knowledge, so themes
+// should ask for a href rather than hardcode the host's routing.
+export { productHref, collectionHref } from "./utils/routes";
+
+// Money formatting. EGP fallback, whole pounds, ar-EG — matching what the
+// fleet renders today, NOT theme-kit's USD/2-digit generic default.
+export { formatMoney, formatMoneyMajor, centsToMajor, majorToCents } from "./utils/money";
+export type { FormatMoneyOptions } from "./utils/money";
 // Phase 3.5 — global settings (colors/fonts/layout) → CSS custom properties.
 export {
   applyGlobalStyleTokens,
