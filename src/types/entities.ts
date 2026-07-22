@@ -13,6 +13,35 @@ export interface Metafield {
   value: unknown;
 }
 
+/**
+ * Blog + Article (merchant content marketing). Text fields are bilingual
+ * maps (`{en, ar}`) — resolve with the theme's `localized()` helper or
+ * `useLocalization().locale`. Only PUBLISHED content reaches the
+ * storefront; the body arrives as UN-sanitized merchant HTML — render it
+ * through `<RichText>` (never raw dangerouslySetInnerHTML).
+ */
+export interface BlogSummary {
+  handle: string;
+  title: Record<string, string>;
+  description?: Record<string, string> | null;
+}
+
+export interface ArticleSummary {
+  handle: string;
+  title: Record<string, string>;
+  excerpt?: Record<string, string> | null;
+  image_url?: string | null;
+  published_at?: string | null;
+  author?: string | null;
+  tags?: string[];
+}
+
+export interface ArticleDetail extends ArticleSummary {
+  body?: Record<string, string> | null;
+  seo?: Record<string, unknown> | null;
+  blog?: BlogSummary | null;
+}
+
 /** Core store entity */
 export interface Store {
   id: string;
