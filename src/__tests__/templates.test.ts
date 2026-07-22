@@ -9,6 +9,7 @@
 import { describe, it, expect } from "vitest";
 import {
   resolveSections,
+  selectChromeSections,
   selectTemplateSections,
   type MaybeOrderedTemplate,
 } from "../utils/templates";
@@ -89,5 +90,62 @@ describe("selectTemplateSections", () => {
   it("returns [] when host has sections, some known, but preset is also empty on the no-known path", () => {
     const host: MaybeOrderedTemplate = { sections: [inst("unknown")] };
     expect(selectTemplateSections(host, undefined, known(["hero"]))).toEqual([]);
+  });
+});
+
+describe("selectChromeSections", () => {
+  const isKnown = (t: string) => t !== "unknown-thing";
+  const isChrome = (t: string) => t === "hdr";
+
+  it("prefers the host section_group", () => {
+    expect(
+      selectChromeSections({
+        hostGroup: { sections: [{ type: "hdr" } as never] },
+        presetGroup: { sections: [{ type: "hdr" } as never] },
+        isChrome,
+        isKnown,
+      }),
+    ).toHaveLength(1);
+  });
+
+  it("borrows chrome from another template when the route has none", () => {
+    // The /blogs case: no group, no inline chrome, no preset group — but the
+    // home template carries a header inline, which is where every other page
+    // gets its navigation from.
+    const out = selectChromeSections({
+      inline: [],
+      templates: [{ sections: [{ type: "hdr" } as never, { type: "hero" } as never] }],
+      isChrome,
+      isKnown,
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].instance.type).toBe("hdr");
+  });
+
+  it("does not borrow when the current template has its own chrome", () => {
+    const out = selectChromeSections({
+      inline: [{ id: "own", instance: { type: "hdr" } as never }],
+      templates: [{ sections: [{ type: "hdr" } as never] }],
+      isChrome,
+      isKnown,
+    });
+    expect(out[0].id).toBe("own");
+  });
+
+  it("returns empty when the theme has no chrome anywhere", () => {
+    expect(
+      selectChromeSections({ templates: [], isChrome, isKnown }),
+    ).toEqual([]);
+  });
+
+  it("never returns a section type the theme cannot render", () => {
+    expect(
+      selectChromeSections({
+        hostGroup: { sections: [{ type: "unknown-thing" } as never] },
+        templates: [{ sections: [{ type: "hdr" } as never] }],
+        isChrome,
+        isKnown,
+      }).every(({ instance }) => isKnown(instance.type)),
+    ).toBe(true);
   });
 });

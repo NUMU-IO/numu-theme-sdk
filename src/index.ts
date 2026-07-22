@@ -23,6 +23,11 @@ export type { ValidationIssue, ValidationResult } from "./validation";
 export { useShop } from "./hooks/useShop";
 export { useProduct, useProductOptional } from "./hooks/useProduct";
 export { useCollection, useCollectionOptional } from "./hooks/useCollection";
+export { useListingHeading } from "./hooks/useListingHeading";
+export type {
+  ListingHeading,
+  ListingHeadingOptions,
+} from "./hooks/useListingHeading";
 export { useCart } from "./hooks/useCart";
 export { useCustomer } from "./hooks/useCustomer";
 export { useThemeSettings } from "./hooks/useThemeSettings";
@@ -275,6 +280,7 @@ export type { FormatMoneyOptions } from "./utils/money";
 // sections render, never how they look.
 export {
   resolveSections,
+  selectChromeSections,
   selectTemplateSections,
 } from "./utils/templates";
 export type {

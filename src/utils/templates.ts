@@ -93,3 +93,61 @@ export function selectTemplateSections(
   if (!anyKnown) return resolveSections(builtinTemplate);
   return hostSections.filter(({ instance }) => isKnown(instance.type));
 }
+
+/**
+ * Find the theme's header/footer for a route it has no template for.
+ *
+ * Chrome reaches a theme from `section_groups` — except most themes never used
+ * that channel: they put the header and footer INLINE in each template's own
+ * section list. That works right up until the shopper hits a route the theme
+ * ships no template for. Then there are no sections, so there is no chrome,
+ * and the page renders with no navigation and no way back into the store.
+ *
+ * That is what `/blogs` looked like on every theme: correct, readable content
+ * with nothing around it — no logo, no menu, no cart, no footer. A shopper
+ * arriving from search had to press Back to escape.
+ *
+ * The template's OWN inline chrome still wins when it has some. This only
+ * supplies chrome to routes that would otherwise have none, by borrowing the
+ * chrome the theme already renders everywhere else — `home` first, since it is
+ * the one template every theme ships and the one merchants customise.
+ *
+ * Returns `[]` when the theme genuinely has no chrome of this kind anywhere,
+ * so a caller can still fall back to its own default.
+ */
+export function selectChromeSections(options: {
+  /** `section_groups[kind]` from the host — the customizer's channel. */
+  hostGroup?: MaybeOrderedTemplate;
+  /** The theme's own preset `section_groups[kind]`. */
+  presetGroup?: MaybeOrderedTemplate;
+  /** Chrome found inline in the CURRENT template's section list. */
+  inline?: ResolvedSection[];
+  /** Every template the theme can draw on — host customisation and presets. */
+  templates?: Array<MaybeOrderedTemplate | undefined>;
+  /** True for the section types that count as this kind of chrome. */
+  isChrome: (sectionType: string) => boolean;
+  /** The theme's registry lookup. */
+  isKnown: (sectionType: string) => boolean;
+}): ResolvedSection[] {
+  const { hostGroup, presetGroup, inline, templates, isChrome, isKnown } =
+    options;
+  const known = (list: ResolvedSection[]) =>
+    list.filter(({ instance }) => isKnown(instance.type));
+
+  const fromHost = known(resolveSections(hostGroup));
+  if (fromHost.length > 0) return fromHost;
+
+  if (inline && inline.length > 0) return known(inline);
+
+  const fromPreset = known(resolveSections(presetGroup));
+  if (fromPreset.length > 0) return fromPreset;
+
+  // Last resort: borrow from any template that carries this chrome inline.
+  for (const template of templates ?? []) {
+    const borrowed = known(resolveSections(template)).filter(({ instance }) =>
+      isChrome(instance.type),
+    );
+    if (borrowed.length > 0) return borrowed;
+  }
+  return [];
+}

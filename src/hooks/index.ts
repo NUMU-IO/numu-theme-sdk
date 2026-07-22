@@ -2,6 +2,8 @@ export { useShop } from "./useShop";
 export { useProduct, useProductOptional } from "./useProduct";
 export { useProductSizeChart, resolveSizeChart } from "./useProductSizeChart";
 export { useCollection, useCollectionOptional } from "./useCollection";
+export { useListingHeading } from "./useListingHeading";
+export type { ListingHeading, ListingHeadingOptions } from "./useListingHeading";
 export { useCart } from "./useCart";
 export { useCustomer } from "./useCustomer";
 export { useThemeSettings } from "./useThemeSettings";
