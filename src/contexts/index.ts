@@ -52,6 +52,11 @@ export interface CartMutationResult {
   ok: boolean;
   status: number;
   message?: string;
+  /** The cart applied by a successful write (MAJOR currency units, same
+   *  normalization as `useCart().cart`). Lets callers read the written
+   *  state — e.g. addItem prices its AddToCart analytics event from the
+   *  added line — without racing React state. Absent on failure. */
+  cart?: Cart;
 }
 
 export interface CartContextValue {
