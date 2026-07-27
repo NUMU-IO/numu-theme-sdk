@@ -4,6 +4,92 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
+## [0.12.0] - unreleased
+
+Metafields, blog/article content, and the shared template-resolution engine.
+Purely **additive** at the API surface — 16 new runtime exports, zero removals
+versus 0.10.1 (verified by diffing the published tarball's export list).
+
+### Added
+
+- **`useListingHeading(options)`** — resolves the title/subtitle a listing
+  (collection / all-products / search) should render, so every theme's product
+  grid agrees on the heading source. New types `ListingHeading`,
+  `ListingHeadingOptions`.
+- **Template + section-group resolution** — `resolveSections`,
+  `selectTemplateSections`, `selectChromeSections`, plus types
+  `MaybeOrderedTemplate` and `ResolvedSection`. This is the "no blank page"
+  engine that was previously copy-pasted as `_template-utils.ts` into 14
+  themes. Headless: it decides WHICH sections render, never how they look.
+- **`useMetafield` / `useMetafields`** — first-class read access to
+  merchant-defined typed fields, complementing the dynamic-source binding path
+  (`{owner}.metafield:{namespace}.{key}`). Public metafields only. New type
+  `MetafieldOwner`.
+- **`useBlogs` / `useBlog` / `useArticles` / `useArticle`** — blog CMS content
+  the host resolves into `page.data` for the blogs/blog/article templates. New
+  types `BlogSummary`, `ArticleSummary`, `ArticleDetail`. Article bodies are
+  UN-sanitized merchant HTML — render through `<RichText>`, never raw
+  `dangerouslySetInnerHTML`.
+
+## [0.11.0] - unreleased
+
+Superseded by 0.12.0 — never published to npm.
+
+### Added
+
+- **`productHref` / `collectionHref`** — storefront route builders. The URL
+  shape is platform knowledge, so themes ask for a href instead of hardcoding
+  the host's routing. `ProductCard` now uses `productHref` internally, so a
+  card and a theme's own links can't disagree about the product route.
+- **Money primitives** — `formatMoney`, `formatMoneyMajor`, `centsToMajor`,
+  `majorToCents` and the `FormatMoneyOptions` type. EGP fallback, whole pounds,
+  `ar-EG` — matching what the fleet renders today, NOT theme-kit's generic
+  USD/2-digit default.
+- **Metafield dynamic sources** — `product.metafield:{ns}.{key}` and
+  `collection.metafield:{ns}.{key}` resolve through `resolveSourcePath`; new
+  `Metafield` type and `metafields?: Metafield[]` on `Product` / `Collection`.
+
+### Changed
+
+- **BREAKING (behaviour, not signature): `applyImageTransform(undefined)` now
+  returns `{}` instead of `{ objectFit: fit }`.** An inline style beats a
+  className, so the old default silently overrode a placement's own
+  `object-contain` / `object-none` class on every UNtransformed image — which
+  is most merchant images. The section's className is back in charge; callers
+  that need a guaranteed fit supply it themselves, e.g.
+  `{ objectFit: fit, ...applyImageTransform(t, fit) }`. `HeroMedia` was updated
+  accordingly. The TypeScript signature is unchanged, so this will NOT surface
+  as a compile error in a consuming theme.
+
+## [0.10.1] - 2026-07-23
+
+Analytics correctness. No API additions or removals (export surface identical
+to 0.10.0).
+
+### Fixed
+
+- **`dispatchAnalyticsEvent` mints ONE `event_id` for both channels.** The
+  `numu:analytics:event` CustomEvent now carries `detail.event_id` and the
+  `/track` POST reuses the same id. The host's Meta/TikTok pixel bridges read
+  `detail.event_id`, so theme-fired events dedupe browser-vs-server instead of
+  double-counting on both platforms. Previously the CustomEvent had no id at
+  all while the POST minted its own.
+- **`CartMutationResult` gains the applied `cart`** (major units, same
+  normalization as `useCart().cart`) so callers can read written state without
+  racing React state. Absent on failure.
+- **`addItem`'s browser `AddToCart` event includes `value` + `currency`**,
+  derived from the written line's snapshot price (variant-aware), making the
+  event usable for value-based ad optimization and dynamic ads.
+
+## [0.10.0] - 2026-07-04
+
+### Added
+
+- **Soft navigation** — `<Link>` dispatches a cancelable `numu:navigate` event
+  so the host can route client-side instead of doing a full document load.
+- **Variant selection registry** — live picker axes act as a `variant_name`
+  fallback when a product's variants carry no structured options.
+
 ## [0.9.0] - 2026-07-04
 
 Template epic I3 — the SDK side of template overrides + global sections shared

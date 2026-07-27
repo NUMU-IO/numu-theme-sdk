@@ -23,6 +23,11 @@ export type { ValidationIssue, ValidationResult } from "./validation";
 export { useShop } from "./hooks/useShop";
 export { useProduct, useProductOptional } from "./hooks/useProduct";
 export { useCollection, useCollectionOptional } from "./hooks/useCollection";
+export { useListingHeading } from "./hooks/useListingHeading";
+export type {
+  ListingHeading,
+  ListingHeadingOptions,
+} from "./hooks/useListingHeading";
 export { useCart } from "./hooks/useCart";
 export { useCustomer } from "./hooks/useCustomer";
 export { useThemeSettings } from "./hooks/useThemeSettings";
@@ -36,6 +41,19 @@ export {
   useNumberFormat,
 } from "./hooks/useLocalization";
 export { usePage } from "./hooks/usePage";
+// Merchant-defined typed fields (metafields) — first-class read access for
+// themes, complementing the dynamic-source binding path
+// (`{owner}.metafield:{namespace}.{key}`). Public fields only.
+export { useMetafield, useMetafields } from "./hooks/useMetafield";
+export type { MetafieldOwner } from "./hooks/useMetafield";
+// Blog/articles CMS — content the host resolves into page.data for the
+// blogs/blog/article templates. Body HTML renders via <RichText> only.
+export { useArticle, useArticles, useBlog, useBlogs } from "./hooks/useArticles";
+export type {
+  ArticleDetail,
+  ArticleSummary,
+  BlogSummary,
+} from "./types/entities";
 export { useSection, useSectionOptional, SectionContext } from "./hooks/useSection";
 // I3 — global sections shared across pages. `useSectionGroup(group)` returns
 // the ordered section instances (each with its `id`) for a named group from
@@ -257,6 +275,18 @@ export { productHref, collectionHref } from "./utils/routes";
 // fleet renders today, NOT theme-kit's USD/2-digit generic default.
 export { formatMoney, formatMoneyMajor, centsToMajor, majorToCents } from "./utils/money";
 export type { FormatMoneyOptions } from "./utils/money";
+// Template + section-group resolution — the "no blank page" engine, previously
+// copy-pasted as `_template-utils.ts` into 14 themes. Headless: decides WHICH
+// sections render, never how they look.
+export {
+  resolveSections,
+  selectChromeSections,
+  selectTemplateSections,
+} from "./utils/templates";
+export type {
+  MaybeOrderedTemplate,
+  ResolvedSection,
+} from "./utils/templates";
 // Phase 3.5 — global settings (colors/fonts/layout) → CSS custom properties.
 export {
   applyGlobalStyleTokens,
