@@ -161,12 +161,20 @@ export function dispatchAnalyticsEvent(
 ): void {
   if (typeof window === "undefined") return;
 
+  // ONE event id for BOTH channels. The host's <MetaPixel>/<TikTokPixel>
+  // bridges fire the browser pixel with `detail.event_id`, and the /track
+  // POST below carries the same id — that's what lets Meta/TikTok dedupe
+  // the browser event against the server-side CAPI/Events-API fire.
+  // (Previously the CustomEvent had NO id while the POST minted its own,
+  // so any theme calling track() double-counted on both platforms.)
+  const eventId = crypto.randomUUID();
+
   // 1. Window CustomEvent — synchronous, cheap. Themes that wire
-  //    their own pixels listen here.
+  //    their own pixels listen here; the host pixel bridges too.
   try {
     window.dispatchEvent(
       new CustomEvent("numu:analytics:event", {
-        detail: { event: eventName, payload, ts: Date.now() },
+        detail: { event: eventName, payload, event_id: eventId, ts: Date.now() },
       }),
     );
   } catch {
@@ -186,7 +194,7 @@ export function dispatchAnalyticsEvent(
   const customerId = readCustomerId();
   const body: Record<string, unknown> = step
     ? {
-        event_id: crypto.randomUUID(),
+        event_id: eventId,
         path: window.location.pathname,
         fingerprint: getFingerprint(),
         step,
@@ -201,6 +209,7 @@ export function dispatchAnalyticsEvent(
     : {
         event: eventName,
         payload,
+        event_id: eventId,
         ts: Date.now(),
         attribution: readAttribution() ?? undefined,
         customer_id: customerId ?? undefined,

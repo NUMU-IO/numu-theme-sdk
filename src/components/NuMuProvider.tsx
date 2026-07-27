@@ -261,11 +261,15 @@ async function postCartMutation(
     return { ok: false, status: res.status, message };
   }
   const json = await res.json();
-  applyCart(unwrapCart(json));
+  const applied = unwrapCart(json);
+  applyCart(applied);
   // Token was actually consumed on entry; applyCart enforces ordering
   // via the closure below.
   void token;
-  return { ok: true, status: res.status };
+  // Hand the written cart back in the SDK's public convention (MAJOR units —
+  // applyCart normalizes for state separately) so callers like addItem can
+  // read the added line's price without racing React state.
+  return { ok: true, status: res.status, cart: normalizeCartFromServer(applied) };
 }
 
 export function NuMuProvider({
@@ -637,8 +641,17 @@ export function NuMuProvider({
       // Browser-side AddToCart signal — CAPI is fired server-side by the cart
       // route with the same id. Dispatched directly (not via useAnalytics) so
       // we control the event_id and avoid a duplicate /track POST.
+      // value/currency (MAJOR units, from the written line's snapshot price)
+      // make the event usable for value-based optimization + dynamic ads.
       try {
         if (typeof window !== "undefined") {
+          const line = result.cart?.items.find((it) =>
+            variantId ? it.variant_id === variantId : it.product_id === productId,
+          );
+          const value =
+            line && typeof line.price === "number" && line.price > 0
+              ? Math.round(line.price * qty * 100) / 100
+              : undefined;
           window.dispatchEvent(
             new CustomEvent("numu:analytics:event", {
               detail: {
@@ -647,6 +660,9 @@ export function NuMuProvider({
                   content_ids: [productId],
                   content_type: "product",
                   num_items: qty,
+                  ...(value !== undefined
+                    ? { value, currency: result.cart?.currency }
+                    : {}),
                 },
                 event_id: eventId,
               },
