@@ -106,12 +106,41 @@ const EMPTY_CART: Cart = {
 function normalizeCartFromServer(cart: Cart): Cart {
   const toMajor = (n: number | null | undefined): number =>
     typeof n === "number" ? n / 100 : 0;
+  // The wire shape carries `automatic_discount_cents`; the theme-facing `Cart`
+  // exposes the converted `automatic_discount`. Destructure the raw name OUT
+  // of the spread rather than just adding the converted one beside it —
+  // otherwise both survive, 100x apart, and the one carrying the name a theme
+  // dev reaches for first (it's the name used by the backend response, by
+  // `adaptCart`, and throughout the offers docs) is the unconverted one.
+  // TypeScript wouldn't catch that read, since the field isn't on `Cart`.
+  const { automatic_discount_cents: wireAutomaticCents, ...rest } = cart as Cart & {
+    automatic_discount_cents?: number;
+  };
   return {
-    ...cart,
+    ...rest,
     subtotal: toMajor(cart.subtotal),
     total: toMajor(cart.total),
     ...(cart.discount_amount != null
       ? { discount_amount: toMajor(cart.discount_amount) }
+      : {}),
+    // Offers-v2 automatic promotions. These MUST be converted here too —
+    // they arrive in cents next to already-major totals, so forwarding them
+    // raw makes every theme render a saving 100x too large. This function is
+    // the one and only cents→major boundary for the cart.
+    //
+    // The backend field is `automatic_discount_cents`; themes get
+    // `automatic_discount` (major), because a `_cents` name holding pounds
+    // invites exactly the double-divide this conversion exists to prevent.
+    ...(wireAutomaticCents != null
+      ? { automatic_discount: toMajor(wireAutomaticCents) }
+      : {}),
+    ...(Array.isArray(cart.applied_promotions)
+      ? {
+          applied_promotions: cart.applied_promotions.map((p) => ({
+            ...p,
+            amount: toMajor(p.amount),
+          })),
+        }
       : {}),
     items: Array.isArray(cart.items)
       ? cart.items.map((it) => {

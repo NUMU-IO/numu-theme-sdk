@@ -203,6 +203,32 @@ export interface Cart {
   discount_code?: string;
   discount_amount?: number;
   note?: string;
+  /**
+   * Total of the automatic (no-code) promotions priced into this cart, in
+   * MAJOR units — same convention as `subtotal` / `total` /
+   * `discount_amount`. `normalizeCartFromServer` converts it from the
+   * backend's `automatic_discount_cents` and renames it here on purpose:
+   * a field called `_cents` that holds pounds is the single easiest way to
+   * get a 100x bug into a theme.
+   */
+  automatic_discount?: number;
+  /**
+   * Which automatic offers fired, and what each one saved — same shape as
+   * `Order.applied_promotions` so one component renders the cart, the
+   * checkout summary and the order.
+   *
+   * ⚠️ `amount` is in MAJOR units here (unlike the identically-named field
+   * on `Order`, which a theme reads straight from the API in cents). The
+   * cart passes through `normalizeCartFromServer`; the order does not.
+   * Never divide these by 100 again, and never recompute a saving in the
+   * theme — this number is the engine's, and the engine is what charges.
+   */
+  applied_promotions?: {
+    id: string;
+    title: string;
+    title_ar?: string;
+    amount: number;
+  }[];
 }
 
 export interface CartItem {
@@ -214,6 +240,12 @@ export interface CartItem {
   price: number;
   quantity: number;
   variant_name?: string;
+  /**
+   * The product's category. Present so a theme can count how many cart units
+   * belong to a category-scoped offer (see `offerProgress`'s `eligibleUnits`)
+   * without a second fetch. Not always populated — treat it as a hint.
+   */
+  category_id?: string | null;
 }
 
 /** Customer entity */
