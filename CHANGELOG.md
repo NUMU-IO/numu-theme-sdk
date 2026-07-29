@@ -4,6 +4,59 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
+## [0.13.0] - unreleased
+
+Cart-level offer visibility and the platform promotion primitives. Purely
+**additive** — no removals versus 0.12.0.
+
+Background: automatic promotions priced the cart correctly at checkout but
+were invisible in the cart itself — the backend cart response carried no
+discount fields, the host's adapter whitelisted them out, and this `Cart` type
+had nowhere to put them. A shopper who qualified for an offer saw the full
+price and only learned about the discount one step later, which is precisely
+when it can no longer motivate the purchase that unlocks it. For an AOV
+mechanic, the cart display *is* the feature.
+
+### Added
+
+- **`Cart.applied_promotions`** — `{id, title, title_ar?, amount}[]`, the same
+  shape as `Order.applied_promotions`, so one component renders the cart, the
+  checkout summary and the order. Plus **`Cart.automatic_discount_cents`**.
+  ⚠️ Unlike the identically-named field on `Order`, these amounts reach a theme
+  in **MAJOR units** — `normalizeCartFromServer` converts them alongside
+  `subtotal` / `total` / `discount_amount`. Do not divide by 100 again.
+- **`useActivePromotions(page?, locale?)`** — typed read of the host proxy
+  `GET /api/storefront/promotions`. SSR-safe (resolves on hydrate), returns
+  `null` on any miss so an offer surface disappears rather than breaking its
+  page. Built on `useCachedResource`, so several sections share one request.
+- **`multibuyOffers(promotions)`** — pulls well-formed "any N for a fixed
+  total P" offers out of the feed. Malformed rules and unknown kinds are
+  skipped, never thrown on: a theme built before a rule kind existed keeps
+  rendering when a merchant starts using it.
+- **`offerProgress(offer, cart, eligibleUnits?)`** → `{unitsInCart,
+  unitsNeeded, groupsUnlocked, savingMajor}`. Counts UNITS not lines (three of
+  one product is a valid trio, as the engine scores it). `savingMajor` is read
+  from the engine's `cart.applied_promotions` — never recomputed, so the theme
+  can't drift from the charged amount. Pass `eligibleUnits` for scoped offers;
+  only the server knows which products are in the targeted set.
+- **`offerBeatsRegularPrice(offer, unitPriceMajor)`** — guard for PDP offer
+  pills: don't advertise a bundle that costs more than buying the items
+  outright (the engine refuses to apply it either).
+- Types `ActivePromotion`, `ActivePromotionsPayload`, `DiscountRule`,
+  `DiscountTier`, `MultibuyOffer`, `OfferProgress`. (Money conversion reuses
+  the existing `centsToMajor` from `utils/money` — one converter, not two.)
+
+`DiscountRule.kind` is an open string union on purpose so new platform rule
+kinds don't require an SDK bump to be tolerated.
+
+### Deploy order (federation)
+
+Themes are federated: a theme bundle importing an export the host's runtime
+SDK doesn't serve yet fails at ESM link time and the theme does not mount.
+Publish this SDK → rebuild + deploy the storefront runtime → verify
+`/__numu-runtime/` serves it → only then ship theme bundles that import the
+new exports. Never reverse.
+
 ## [0.12.0] - unreleased
 
 Metafields, blog/article content, and the shared template-resolution engine.

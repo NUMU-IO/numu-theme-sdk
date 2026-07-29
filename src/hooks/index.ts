@@ -15,3 +15,4 @@ export { useArticle, useArticles, useBlog, useBlogs } from "./useArticles";
 export { useSection, useSectionOptional, SectionContext } from "./useSection";
 export { useSectionGroup } from "./useSectionGroup";
 export type { SectionGroupInstance } from "./useSectionGroup";
+export { useActivePromotions } from "./useActivePromotions";

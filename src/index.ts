@@ -105,6 +105,27 @@ export type {
   UseCachedResourceOptions,
 } from "./lib/dataCache";
 
+// Platform promotions — the offers-v2 feed plus headless helpers for showing
+// them. Themes IMPORT these rather than copying a local `_promotions.ts`, so a
+// new rule kind (e.g. multibuy "3 for EGP 650") reaches every theme at once.
+// All pricing is the server's; these only describe and format it.
+export { useActivePromotions } from "./hooks/useActivePromotions";
+export {
+  multibuyOffers,
+  offerProgress,
+  offerBeatsRegularPrice,
+  offerIncludesProduct,
+  eligibleUnitsInCart,
+} from "./lib/promotions";
+export type {
+  ActivePromotion,
+  ActivePromotionsPayload,
+  DiscountRule,
+  DiscountTier,
+  MultibuyOffer,
+  OfferProgress,
+} from "./types/promotions";
+
 // Size charts — resolve per-product / store-default charts with one precedence.
 export {
   useProductSizeChart,
