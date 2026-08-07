@@ -37,9 +37,23 @@ function setMatchMedia(matches: boolean) {
   });
 }
 
+/**
+ * Declare that the host honors server-side crop params, i.e. the storefront
+ * runs with `NUMU_CF_IMAGE_RESIZING=1`. With CF OFF (the default, and what
+ * every store runs today) `/api/image-transform` drops `fp-x`/`fp-y`/`ar`/
+ * `fit` on the floor, so the SDK omits them — a URL that differs from the
+ * width-only form for no visual gain just misses the host's hero preload.
+ */
+function setCfImageResizing(enabled: boolean) {
+  (globalThis as { __NUMU_CF_IMAGE_RESIZING__?: boolean })
+    .__NUMU_CF_IMAGE_RESIZING__ = enabled;
+}
+
 afterEach(() => {
   // @ts-expect-error – test cleanup
   delete window.matchMedia;
+  delete (globalThis as { __NUMU_CF_IMAGE_RESIZING__?: boolean })
+    .__NUMU_CF_IMAGE_RESIZING__;
 });
 
 describe("HeroMedia", () => {
@@ -99,6 +113,7 @@ describe("HeroMedia", () => {
   });
 
   it("swaps to the mobile bitmap when the viewport matches the mobile breakpoint", () => {
+    setCfImageResizing(true);
     setMatchMedia(true);
     const { container } = render(
       createElement(HeroMedia, {
@@ -117,6 +132,29 @@ describe("HeroMedia", () => {
     expect(srcset).toContain("ar=4");
   });
 
+  it("keeps the mobile url width-only when the host does not honor crop params", () => {
+    // CF Image Resizing OFF — the flag is absent, which is every store today.
+    setMatchMedia(true);
+    const { container } = render(
+      createElement(HeroMedia, {
+        src: DESKTOP,
+        alt: "Hero",
+        mobileSrc: MOBILE,
+        mobileAspect: "4/5",
+        transform: { v: 1, focal: { x: 0.3, y: 0.7 } },
+      }),
+    );
+    const srcset = container.querySelector("img")?.getAttribute("srcset") ?? "";
+    expect(srcset).toContain("hero-mobile");
+    // Inert params are omitted so the URL byte-matches the host's width-only
+    // <link rel=preload as=image> for the mobile hero. Emitting them cost an
+    // 18.7 s mobile LCP on vionne: preload discarded, hero re-fetched at 9 s.
+    expect(srcset).not.toContain("ar=");
+    expect(srcset).not.toContain("fit=");
+    expect(srcset).not.toContain("fp-x=");
+    expect(srcset).toContain("w=");
+  });
+
   it("downgrades to lazy with no fetchpriority when priority is false", () => {
     const { container } = render(
       createElement(HeroMedia, { src: DESKTOP, alt: "Hero", priority: false }),
@@ -127,6 +165,7 @@ describe("HeroMedia", () => {
   });
 
   it("sends desktop server-crop params only when desktopAspect is set", () => {
+    setCfImageResizing(true);
     const { container } = render(
       createElement(HeroMedia, {
         src: DESKTOP,

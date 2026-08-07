@@ -103,6 +103,40 @@ export interface FocalSrcOptions {
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
+/**
+ * Does the HOST honor server-side crop params (`fp-x`/`fp-y`/`ar`/`fit`)?
+ *
+ * The storefront's `/api/image-transform` only acts on them when Cloudflare
+ * Image Resizing is enabled (`NUMU_CF_IMAGE_RESIZING=1`); with CF off it
+ * DROPS them and forwards `url`+`w`+`q` to `/_next/image`. So on every store
+ * running today, a URL carrying `&ar=4/5&fit=cover` fetches byte-for-byte the
+ * same image as the width-only URL — the params are inert.
+ *
+ * Inert is not free. A URL that differs from the width-only form is a
+ * different cache key, so it misses the host's `<link rel=preload as=image>`
+ * for the hero (which is width-only by construction — the host can't know a
+ * theme's `mobileAspect`). Measured on vionne: the mobile hero was preloaded
+ * at high priority, discarded, and re-requested 6.9 s later once the theme
+ * hydrated — the single largest contributor to an 18.7 s mobile LCP.
+ *
+ * So: emit crop params only when the host says it will honor them. The
+ * storefront sets `__NUMU_CF_IMAGE_RESIZING__` (see the storefront's
+ * RuntimeImportMap) from the same env var the route reads, which keeps the
+ * URL we build and the transform the server performs in lockstep. Absent the
+ * flag we assume off — the safe default, since that's the configuration every
+ * store runs and CSS `applyImageTransform` frames the image regardless.
+ *
+ * Read through `globalThis` so the value is identical under the SSR worker
+ * and in the browser (a `typeof window` check would diverge and produce a
+ * hydration mismatch on `src` the moment CF is switched on).
+ */
+function hostHonorsCropParams(): boolean {
+  return (
+    (globalThis as { __NUMU_CF_IMAGE_RESIZING__?: boolean })
+      .__NUMU_CF_IMAGE_RESIZING__ === true
+  );
+}
+
 export function focalSrc(
   url: string | null | undefined,
   options: FocalSrcOptions = {},
@@ -111,13 +145,14 @@ export function focalSrc(
   // data: URIs and already-transformed URLs pass through untouched.
   if (url.startsWith("data:") || /[?&](fp-x|fp-y)=/.test(url)) return url;
 
+  const crop = hostHonorsCropParams();
   const p = new URLSearchParams();
   p.set("url", url);
   if (options.width) p.set("w", String(Math.round(options.width)));
-  if (options.focal?.x != null) p.set("fp-x", String(clamp01(options.focal.x)));
-  if (options.focal?.y != null) p.set("fp-y", String(clamp01(options.focal.y)));
-  if (options.aspect) p.set("ar", options.aspect);
-  if (options.fit) p.set("fit", options.fit);
+  if (crop && options.focal?.x != null) p.set("fp-x", String(clamp01(options.focal.x)));
+  if (crop && options.focal?.y != null) p.set("fp-y", String(clamp01(options.focal.y)));
+  if (crop && options.aspect) p.set("ar", options.aspect);
+  if (crop && options.fit) p.set("fit", options.fit);
   if (options.quality) p.set("q", String(Math.min(100, Math.max(1, Math.round(options.quality)))));
   if (options.format) p.set("f", options.format.toLowerCase());
 
