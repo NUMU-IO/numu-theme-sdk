@@ -154,10 +154,15 @@ export function HeroMedia({
   // Framing inputs (safe to compute every render; cheap + pure).
   const desktopFocal = transform?.focal;
   const mobileFocal = mobileTransform?.focal ?? desktopFocal;
-  // Desktop server-crop params (focal/aspect/fit) are sent ONLY when an explicit
-  // desktopAspect is requested. A full-bleed desktop hero (no aspect) stays width-only
+  // Desktop server-crop params (focal/aspect/fit) are requested ONLY when an explicit
+  // desktopAspect is set. A full-bleed desktop hero (no aspect) stays width-only
   // — byte-matching the host's width-only <link rel=preload> so the preload is credited.
   // CSS applyImageTransform still frames the desktop focal either way.
+  //
+  // The MOBILE branch below always asks for them, which used to mean the mobile hero
+  // URL could never match that preload. It matches now regardless: focalSrc drops all
+  // four params unless the host advertises `__NUMU_CF_IMAGE_RESIZING__` — and with CF
+  // off (every store today) the endpoint was discarding them anyway. See focalSrc.
   const desktopCrop: Omit<FocalSrcOptions, "width"> = desktopAspect
     ? { focal: desktopFocal, aspect: desktopAspect, fit }
     : {};
