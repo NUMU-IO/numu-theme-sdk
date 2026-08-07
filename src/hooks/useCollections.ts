@@ -17,6 +17,33 @@ interface UseCollectionsResult {
 }
 
 /**
+ * Read a collection list out of whatever envelope the host answered with.
+ *
+ * `fetchIfMissing` was effectively DEAD before this: it read `data.collections`
+ * while `/api/collections` proxies FastAPI verbatim and answers the platform
+ * envelope `{ success, data: [...] }`. That lookup is `undefined`, so a theme
+ * that opted into the fetch got a request followed by an EMPTY list — the same
+ * blank menu it was trying to fix, only slower. Verified against the live
+ * endpoint. All three shapes are accepted so the hook can't be re-broken by an
+ * envelope change on either side.
+ */
+function unwrapCollections(json: unknown): Collection[] {
+  if (Array.isArray(json)) return json as Collection[];
+  const obj = json as
+    | {
+        collections?: unknown;
+        data?: unknown;
+      }
+    | null
+    | undefined;
+  if (Array.isArray(obj?.collections)) return obj.collections as Collection[];
+  if (Array.isArray(obj?.data)) return obj.data as Collection[];
+  const items = (obj?.data as { items?: unknown } | undefined)?.items;
+  if (Array.isArray(items)) return items as Collection[];
+  return [];
+}
+
+/**
  * useCollections — analog to useProducts. Reads page.data.collections
  * pre-fetched by the storefront SSR; falls back to /api/collections
  * when fetchIfMissing is true.
@@ -45,9 +72,9 @@ export function useCollections(
         const params = new URLSearchParams({ store_id: shop.id });
         const res = await fetch(`/api/collections?${params.toString()}`);
         if (!res.ok) throw new Error(`/api/collections → ${res.status}`);
-        const data = (await res.json()) as { collections?: Collection[] };
+        const json = (await res.json()) as unknown;
         if (cancelled) return;
-        setCollections(data.collections ?? []);
+        setCollections(unwrapCollections(json));
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
