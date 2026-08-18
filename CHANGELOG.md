@@ -4,6 +4,31 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-08-18
+
+### Fixed
+
+- `useAnalytics().track()` now sends `page_url` — the absolute URL of the page
+  the event happened on. Without it the host fell back to the store origin, so
+  every theme-fired event told Meta and TikTok the shopper was on the homepage.
+  Product-level retargeting audiences were built from that, and they were wrong
+  for every event a theme fired rather than the host.
+
+  Both request shapes carry it, so it reaches the vendors whichever path the
+  host takes. There is deliberately still no `user_data` in this payload —
+  identity is resolved server-side, because a theme bundle runs on the
+  storefront origin alongside every other theme's code.
+
+## [0.13.1] - 2026-08-07
+
+Published to npm but missing from this file until 0.13.2 — recorded here so the
+history is continuous.
+
+### Changed
+
+- Image crop parameters are emitted only when the host will actually honour
+  them, instead of unconditionally.
+
 ## [0.13.0] - unreleased
 
 Cart-level offer visibility and the platform promotion primitives. Purely
