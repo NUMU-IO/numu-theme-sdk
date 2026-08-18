@@ -192,10 +192,24 @@ export function dispatchAnalyticsEvent(
   // with customer_id set immediately instead of waiting for the
   // next checkout to backfill.
   const customerId = readCustomerId();
+  // Absolute URL as well as the path. The backend uses it for the CAPI
+  // `event_source_url`; without it a theme-fired event fell back to the store
+  // origin, so every one of them looked like it happened on the homepage —
+  // which is the field Meta's URL-based audience rules read.
+  const pageUrl =
+    typeof window !== "undefined" ? window.location.href : undefined;
+
+  // NOTE: no `user_data` here, deliberately. Identity is resolved SERVER-side
+  // from `fingerprint` — the backend looks up the shopper's contact details
+  // and hashes them before anything leaves for Meta. Passing PII through the
+  // SDK would mean a theme bundle handling a shopper's email in its own
+  // scope, and BYOT bundles are third-party code running on the storefront's
+  // origin. The fingerprint is enough, and it is not PII.
   const body: Record<string, unknown> = step
     ? {
         event_id: eventId,
         path: window.location.pathname,
+        page_url: pageUrl,
         fingerprint: getFingerprint(),
         step,
         step_data: payload,
@@ -210,6 +224,7 @@ export function dispatchAnalyticsEvent(
         event: eventName,
         payload,
         event_id: eventId,
+        page_url: pageUrl,
         ts: Date.now(),
         attribution: readAttribution() ?? undefined,
         customer_id: customerId ?? undefined,
