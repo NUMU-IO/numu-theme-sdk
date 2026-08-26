@@ -11,9 +11,11 @@
  * and the alternate-image pre-warm.
  */
 
-import { createElement } from "react";
+import { act, createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { HeroMedia } from "../components/HeroMedia";
 
 const DESKTOP = "https://cdn.numueg.app/hero-desktop.jpg";
@@ -223,5 +225,50 @@ describe("HeroMedia", () => {
     }
     // The off-breakpoint (mobile) bitmap was fetched ahead of the swap.
     expect(warmed.some((u) => u.includes("hero-mobile"))).toBe(true);
+  });
+
+  /**
+   * REGRESSION — the storefront server-renders theme sections, and on the
+   * server there is no viewport, so SSR always emits the DESKTOP bitmap. On a
+   * phone the client's first render already computes the MOBILE one, so
+   * React's before/after values match and no attribute update is committed —
+   * and hydration does not repair mismatched src/srcSet. The desktop image
+   * stuck on phones until something forced a real re-render (which is why
+   * resizing across the breakpoint "fixed" it and reloading did not).
+   *
+   * Reproduced live on vionne.numueg.app before the fix: matchMedia true,
+   * isMobile state true, mobileSrc present — and the DOM still showing the
+   * desktop bitmap at w=1920, on 6 of 6 cold loads.
+   */
+  it("repairs the bitmap after hydrating server HTML that was rendered desktop-first", async () => {
+    setCfImageResizing(true);
+
+    // 1. SERVER: no viewport → desktop bitmap in the markup.
+    setMatchMedia(false);
+    const ssrHtml = renderToString(
+      createElement(HeroMedia, { src: DESKTOP, alt: "Hero", mobileSrc: MOBILE }),
+    );
+    expect(ssrHtml).toContain("hero-desktop");
+    expect(ssrHtml).not.toContain("hero-mobile");
+
+    const container = document.createElement("div");
+    container.innerHTML = ssrHtml;
+    document.body.appendChild(container);
+
+    // 2. CLIENT on a phone: hydrate that same markup.
+    setMatchMedia(true);
+    await act(async () => {
+      hydrateRoot(
+        container,
+        createElement(HeroMedia, { src: DESKTOP, alt: "Hero", mobileSrc: MOBILE }),
+      );
+    });
+
+    // 3. The shopper must end up looking at the MOBILE bitmap.
+    const img = container.querySelector("img");
+    expect(img?.getAttribute("src") ?? "").toContain("hero-mobile");
+    expect(img?.getAttribute("srcset") ?? "").toContain("hero-mobile");
+    expect(img?.getAttribute("srcset") ?? "").not.toContain("hero-desktop");
+    document.body.removeChild(container);
   });
 });
