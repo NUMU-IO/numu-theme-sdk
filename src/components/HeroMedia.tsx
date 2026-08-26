@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   CSSProperties,
   ImgHTMLAttributes,
@@ -84,7 +84,16 @@ function heroSrcSet(url: string, opts: Omit<FocalSrcOptions, "width">): string {
  * mobile sizes. CSS media queries DO re-evaluate on that resize (Tailwind flips the
  * container to portrait), and `matchMedia` shares that engine, so the swap is
  * deterministic. The state initialises from `matchMedia` so the first client paint is
- * already correct (V3 themes mount client-side) — no desktop→mobile flash on phones.
+ * already correct — no desktop→mobile flash on phones.
+ *
+ * ## SSR + hydration
+ * The storefront SERVER-renders theme sections, and the server has no viewport, so the
+ * SSR markup ALWAYS carries the desktop bitmap. On a phone the client's first render
+ * computes the mobile one — which means React's before/after values are identical and
+ * it commits no attribute update, and hydration does not repair a mismatched
+ * `src`/`srcSet`. The desktop image therefore stuck on phones. See the hydration-repair
+ * effect near the bottom; do not remove it on the assumption that themes mount
+ * client-side (they did once; they do not now).
  *
  * ## Smooth swap
  * The off-breakpoint image is pre-warmed (low priority, after paint) so toggling the
@@ -200,6 +209,56 @@ export function HeroMedia({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preloadAlternate, hasMobile, src, mobileSrc, isMobile, rawFallback]);
 
+  // Computed BEFORE the `!src` early return so the hydration-repair effect
+  // below stays an unconditional hook.
+  const useMobile = hasMobile && isMobile;
+  const activeUrl = useMobile ? (mobileSrc as string) : src;
+  const activeCrop = useMobile ? mobileCrop : desktopCrop;
+  const activeBase = useMobile ? MOBILE_BASE_WIDTH : DESKTOP_BASE_WIDTH;
+  const activeSrc = !activeUrl
+    ? ""
+    : rawFallback
+      ? activeUrl
+      : focalSrc(activeUrl, { width: activeBase, ...activeCrop });
+  const activeSrcSet =
+    !activeUrl || rawFallback ? undefined : heroSrcSet(activeUrl, activeCrop);
+
+  /**
+   * Repair the art direction after hydration.
+   *
+   * THE BUG THIS FIXES — the storefront SERVER-renders theme sections, and on
+   * the server there is no `window`, so `isMobile` initialises `false` and the
+   * SSR HTML always carries the DESKTOP bitmap. On a phone the client's very
+   * FIRST render already computes the mobile one, so React's own before/after
+   * values are identical and no attribute update is ever committed — and React
+   * does not repair mismatched `src`/`srcSet` while hydrating. The desktop
+   * image therefore stuck on phones until something forced a genuine
+   * re-render, which is why resizing across the breakpoint "fixed" it and a
+   * plain reload did not.
+   *
+   * (The doc block above used to justify the matchMedia initialiser with "V3
+   * themes mount client-side". That stopped being true when SSR shipped; this
+   * effect is what makes the initialiser correct again.)
+   *
+   * Writing straight to the node is deliberate: the whole problem is that
+   * React's virtual DOM already agrees with us, so only an imperative write
+   * closes the gap. It is a no-op on every subsequent render and on any host
+   * that does not server-render.
+   */
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  useEffect(() => {
+    const el = imgRef.current;
+    if (!el || !activeSrc) return;
+    if (el.getAttribute("src") !== activeSrc) el.setAttribute("src", activeSrc);
+    if (activeSrcSet) {
+      if (el.getAttribute("srcset") !== activeSrcSet) {
+        el.setAttribute("srcset", activeSrcSet);
+      }
+    } else if (el.hasAttribute("srcset")) {
+      el.removeAttribute("srcset");
+    }
+  }, [activeSrc, activeSrcSet]);
+
   if (!src) {
     // Placeholder so layout doesn't shift while the merchant configures the image.
     return (
@@ -212,14 +271,6 @@ export function HeroMedia({
     );
   }
 
-  const useMobile = hasMobile && isMobile;
-  const activeUrl = useMobile ? (mobileSrc as string) : src;
-  const activeCrop = useMobile ? mobileCrop : desktopCrop;
-  const activeBase = useMobile ? MOBILE_BASE_WIDTH : DESKTOP_BASE_WIDTH;
-  const activeSrc = rawFallback
-    ? activeUrl
-    : focalSrc(activeUrl, { width: activeBase, ...activeCrop });
-  const activeSrcSet = rawFallback ? undefined : heroSrcSet(activeUrl, activeCrop);
   // A hero always fills its frame, so the fit is supplied here rather than by
   // `applyImageTransform` — that helper returns {} for an untransformed image
   // so it never overrides a section's own object-fit class (see its docs).
@@ -230,6 +281,7 @@ export function HeroMedia({
 
   return (
     <img
+      ref={imgRef}
       src={activeSrc}
       srcSet={activeSrcSet}
       sizes={activeSrcSet ? sizes : undefined}
