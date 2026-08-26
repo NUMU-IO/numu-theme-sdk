@@ -24,6 +24,28 @@ interface UseProductsResult {
 }
 
 /**
+ * Read a product list out of whatever envelope the host answered with.
+ *
+ * `fetchIfMissing` was effectively DEAD before this — the exact bug already
+ * found and fixed in `useCollections`. It read `data.products`, while
+ * `/api/products` proxies FastAPI verbatim and answers the platform envelope
+ * `{ success, data: { items: [...] } }`. That lookup is `undefined`, so a
+ * theme that opted into the fetch got a request followed by an EMPTY list —
+ * the same blank grid it was trying to fix, only slower. Verified against the
+ * live endpoint. Every shape is accepted so an envelope change on either side
+ * can't silently re-break it.
+ */
+function unwrapProducts(json: unknown): Product[] {
+  if (Array.isArray(json)) return json as Product[];
+  const obj = json as { products?: unknown; data?: unknown } | null | undefined;
+  if (Array.isArray(obj?.products)) return obj.products as Product[];
+  if (Array.isArray(obj?.data)) return obj.data as Product[];
+  const items = (obj?.data as { items?: unknown } | undefined)?.items;
+  if (Array.isArray(items)) return items as Product[];
+  return [];
+}
+
+/**
  * useProducts — read the storefront-pre-fetched product list from the
  * page context, optionally falling back to a client-side fetch.
  *
@@ -57,9 +79,9 @@ export function useProducts(
         if (limit) params.set("limit", String(limit));
         const res = await fetch(`/api/products?${params.toString()}`);
         if (!res.ok) throw new Error(`/api/products → ${res.status}`);
-        const data = (await res.json()) as { products?: Product[] };
+        const json = (await res.json()) as unknown;
         if (cancelled) return;
-        setProducts(data.products ?? []);
+        setProducts(unwrapProducts(json));
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
