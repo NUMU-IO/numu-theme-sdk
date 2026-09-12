@@ -40,3 +40,7 @@ export function collectionHref(
   const key = category.slug || category.id;
   return key ? `/collections/${key}` : "/collections";
 }
+
+export function seriesHref(slugOrId: string | undefined | null): string {
+  return slugOrId ? `/series/${slugOrId}` : "/products";
+}
