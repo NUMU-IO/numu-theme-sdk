@@ -92,6 +92,8 @@ export interface Product {
   attributes?: Record<string, unknown>;
   /** Public merchant-defined typed fields. See {@link Metafield}. */
   metafields?: Metafield[];
+  /** Ordered collections this product belongs to (book series, courses, etc.). */
+  series?: ProductSeriesMembership[];
 }
 
 /**
@@ -178,6 +180,41 @@ export interface ProductVariant {
   in_stock?: boolean;
   /** Alias for `option_values`; preserved for backward compat. */
   options?: Record<string, string>;
+  fulfillment_type?: "physical" | "digital" | "service";
+  requires_shipping?: boolean;
+  track_inventory?: boolean;
+}
+
+export interface SeriesProduct {
+  product_id: string;
+  name: string;
+  slug: string;
+  cover_image_url?: string | null;
+  volume_label?: string | null;
+  position: number;
+  price?: number;
+  price_currency?: string;
+}
+
+export interface ProductSeriesMembership {
+  id: string;
+  name: string;
+  slug: string;
+  volume_label?: string | null;
+  position: number;
+  count: number;
+  previous?: SeriesProduct | null;
+  next?: SeriesProduct | null;
+  products: SeriesProduct[];
+}
+
+export interface ProductSeries {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  cover_image_url?: string | null;
+  products: SeriesProduct[];
 }
 
 /** Collection entity */

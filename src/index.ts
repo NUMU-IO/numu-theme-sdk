@@ -1,5 +1,5 @@
 // Types
-export type { Store, Product, ProductImage, ProductVariant, Collection, Cart, CartItem, Customer, Order, OrderItem, Address, Page } from "./types/entities";
+export type { Store, Product, ProductImage, ProductVariant, ProductSeries, ProductSeriesMembership, SeriesProduct, Collection, Cart, CartItem, Customer, Order, OrderItem, Address, Page } from "./types/entities";
 export type { ThemeSettingsV3, PageTemplate, SectionGroup, SectionInstance, BlockInstance, ExternalThemeMetadata, MountResult, SectionSchema, BlockSchema, SettingDefinition, SectionPreset, PresetBlock, SectionProps, BlockProps } from "./types/theme";
 export { MAX_BLOCK_DEPTH } from "./types/theme";
 
@@ -290,7 +290,7 @@ export type { ImageTransform } from "./utils/imageTransform";
 
 // Storefront route builders — the URL shape is platform knowledge, so themes
 // should ask for a href rather than hardcode the host's routing.
-export { productHref, collectionHref } from "./utils/routes";
+export { productHref, collectionHref, seriesHref } from "./utils/routes";
 
 // Money formatting. EGP fallback, whole pounds, ar-EG — matching what the
 // fleet renders today, NOT theme-kit's USD/2-digit generic default.

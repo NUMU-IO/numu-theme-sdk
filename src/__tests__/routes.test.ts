@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectionHref, productHref } from "../utils/routes";
+import { collectionHref, productHref, seriesHref } from "../utils/routes";
 
 describe("productHref", () => {
   // Verbatim behaviour of the copy that shipped in 4 themes + 4 scaffolds --
@@ -53,5 +53,12 @@ describe("collectionHref", () => {
     for (const input of [null, undefined, "", {}, { slug: null, id: null }]) {
       expect(collectionHref(input as never)).not.toContain("undefined");
     }
+  });
+});
+
+describe("seriesHref", () => {
+  it("builds a series route and safely handles missing data", () => {
+    expect(seriesHref("harry-potter")).toBe("/series/harry-potter");
+    expect(seriesHref(undefined)).toBe("/products");
   });
 });
