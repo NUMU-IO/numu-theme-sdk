@@ -4,6 +4,145 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
+## [0.14.0] - unreleased
+
+### Added
+
+- **Section library.** Eight ready-made sections that any V3 theme can offer
+  in its editor: `lib-before-after`, `lib-ugc-carousel`, `lib-promo-banner`,
+  `lib-testimonials`, `lib-faq`, `lib-process`, `lib-store-visit` and
+  `lib-lookbook`. A theme opts in with `librarySection(type)` and
+  `isLibrarySection(type)` as a fallback in its section registry. The sections
+  render on the server, take the theme's fonts and colours from the
+  `--theme-*` tokens, ship their own CSS (React 19 hoists and dedupes it), use
+  Arabic defaults for Arabic stores, and support inline text editing in the V3
+  editor.
+- `@numueg/theme-sdk/section-library` exports the library's schemas as
+  `sectionLibraryCatalog`, and `npm run build` writes the same data to
+  `dist/section-library.json` for the platform API. Neither is part of the root
+  bundle.
+- `SectionSchema`, `BlockSchema` and `SettingDefinition` gain an optional
+  `locales` field, and `SectionPreset` gains `category`. The V3 editor already
+  reads both.
+- `whatsappHref(raw)` builds a WhatsApp link from a number typed any common way
+  (`01012345678`, `+20 10 1234 5678`, `0020…`) or from a pasted wa.me URL.
+  Theme footers and contact sections build these links inline and strip only
+  non-digits, so an Egyptian local number produced `wa.me/010…`, which
+  WhatsApp cannot open.
+- **`lib-collection-tiles`** ("Shop by category"), the ninth library section:
+  image tiles linking to the store's collections (read with `fetchIfMissing`,
+  so it works on any page) or to hand-made `tile` blocks. Grid only; 2–6 tiles
+  per row on desktop, two on phones; portrait, square or landscape images; the
+  name under or on the image. Renders nothing on the storefront when there is
+  nothing to show, and a prompt in the editor.
+- **Twelve more library sections** (theme-section-base Phase 7, Wave 1), each
+  replacing per-theme copies or filling a gap no theme covered:
+  - `lib-marquee`: scrolling text; styles `band`, `statement`, `tilted`.
+  - `lib-image-text`: image with text; styles `split`, `overlay`, `story` (quote + value cards).
+  - `lib-rich-text`: text block; styles `plain`, `note` (editor's note with byline).
+  - `lib-trust-strip`: reassurance points with icons (COD, shipping, exchange…); styles `row`, `cards`.
+  - `lib-logo-list`: brand / press logos; styles `row`, `grid`.
+  - `lib-video`: uploaded file or YouTube/Vimeo/social embed; styles `contained`, `full`.
+  - `lib-countdown`: offer timer in Cairo time; styles `band`, `card`; hides or shows a message when it ends.
+  - `lib-gallery`: photo gallery; styles `grid`, `looks` (customer looks with product links), `masonry`.
+  - `lib-shop-the-look`: a photo with numbered product hotspots and a list.
+  - `lib-size-guide`: size chart, measuring tips and fit cards; styles `table`, `fits`.
+  - `lib-materials-care`: materials and care rows; styles `list`, `columns`.
+  - `lib-made-to-order`: lead time, personalisation and a WhatsApp button.
+- **More looks for existing sections:** `lib-testimonials` gains a `cards` style
+  with star ratings (`review_N_rating`); `lib-promo-banner` gains a `split`
+  offer card (`badge_text`, `subtitle`); `lib-collection-tiles` gains `card` and
+  `circles` styles and `show_counts`.
+- `<CmsPageBody />` renders the merchant's page title and body (Online Store →
+  Pages) on `page` routes, for themes without their own body binding. Those
+  themes relied on the storefront filling an empty `<main>`, so a page template
+  with sections lost the page text. It renders nothing without a body, so the
+  storefront's empty-page fallback still shows.
+- **Shared commerce core** (Phase 7, Wave 2), root exports: `cardPrice`,
+  `isDiscounted`, `discountPercent`, `inStock` (handles the list, related and
+  detail product payloads), `fetchProductDetail` (cached, one request per
+  product at a time) and `useQuickAdd`, which never adds a product with
+  variants without a variant id: it fetches the detail first, adds a single
+  variant directly, and hands several variants to `onNeedsOptions` or the
+  product page. `LibProductCard` renders a product with price, struck
+  compare-at price, discount badge, sold-out state and quick add.
+- **`lib-product-rail`** ("Products"): newest, a collection, a tag or a
+  hand-picked list; styles `rail` (scrolling row with prev/next buttons that
+  mirror in RTL) and `grid`.
+- **`lib-bundle-builder`** ("Build your bundle" / Pick N, Phase 7, Wave 3):
+  shoppers pick 2–6 products from a collection, tag or hand-picked list,
+  choose a variant where needed, and add them all to the bag. Styles `grid`
+  and `sticky` (summary kept in view). The section never invents a discount:
+  the offer price shows only when an active automatic multibuy covers exactly
+  the picks, and the saving shown after adding comes from the cart the server
+  priced.
+- **`lib-hero`** (Phase 7, Wave 3): the top-of-page banner, built on
+  `HeroMedia` (separate phone image, first image eager with high fetch
+  priority). Styles `full`, `split`, `slideshow` (crossfade, prev/next, dots,
+  swipe that mirrors in RTL, autoplay that pauses on hover/focus and never runs
+  under reduced motion) and `minimal`. Up to five `slide` blocks with two
+  buttons each.
+- **`lib-newsletter`** (Phase 7, Wave 4): an email signup that really saves the
+  subscriber. It posts to the storefront's `/api/storefront/newsletter`, which
+  stores the email as a customer with marketing consent and the `newsletter`
+  tag. Styles `centered`, `card`, `split` (image beside the form). Has a hidden
+  honeypot field, never posts from inside the editor, and reports invalid
+  email, rate limiting and network failure instead of pretending success. Needs
+  the matching NUMU-api endpoint and storefront proxy.
+
+- **Library sections load on demand.** Each `lib-*` section is its own chunk,
+  loaded (inside its own Suspense boundary) the first time a page renders it.
+  New `preloadLibrarySections(types)` starts those downloads early.
+  **Server rendering must wait for Suspense:** `renderToString` renders a lazy
+  section as empty, so hosts render with `prerenderToNodeStream` (the
+  storefront SSR worker does). For a tree with no library sections the HTML is
+  byte-identical to `renderToString`.
+
+The storefront's `sdk.js` stays small as the library grows: 79,112 bytes
+minified (27,482 gzip), against 83,852 (28,529) for 0.13.4. Each library
+section adds a separate 3–14 KB chunk that only pages using it download.
+
+### Fixed
+
+- **`fetchIfMissing` never fetched.** `NuMuProvider` published
+  `products: []` and `collections: []` when the host sent none, so
+  `useProducts` / `useCollections` treated every page as pre-fetched. Sections
+  that opt in (genova, teen, powells, empire and gilded rails, search, cart and
+  404 sections, plus the library's product rail, collection tiles and UGC
+  carousel) stayed empty on `/cart`, CMS pages and 404. The provider now leaves
+  those keys out unless the host sent them.
+- `AddToCartButton` showed success when the cart refused the add
+  (`ok: false`); it now shows its error label and does not call `onAdded`. It
+  also reads stock with `inStock()`, so related-product payloads
+  (`is_in_stock`) are no longer treated as sold out.
+
+### Changed
+
+- The header comment in `src/utils/templates.ts` now gives the correct copy
+  count (13 themes, 10 of them byte-identical) and no longer claims that Empire
+  skips unknown section types.
+
+## [0.13.4] - 2026-09-12
+
+### Added
+
+- Sector commerce contracts: `Product.series` with the `ProductSeries`,
+  `ProductSeriesMembership` and `SeriesProduct` types for ordered product
+  series (book series, courses), the `seriesHref()` route builder, and
+  `fulfillment_type`, `requires_shipping` and `track_inventory` on
+  `ProductVariant`.
+
+## [0.13.3] - 2026-08-26
+
+### Fixed
+
+- `HeroMedia` shows the separate mobile hero image on phones. The server
+  rendered the desktop image and hydration never corrected the mismatched
+  `src`/`srcSet`; the component now syncs the image once after mount.
+- `useProducts({ fetchIfMissing: true })` reads the platform envelope
+  (`{ success, data: { items } }`) that `/api/products` returns. It had always
+  committed an empty list.
+
 ## [0.13.2] - 2026-08-18
 
 ### Fixed

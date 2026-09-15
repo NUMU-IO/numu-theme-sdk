@@ -44,3 +44,22 @@ export function collectionHref(
 export function seriesHref(slugOrId: string | undefined | null): string {
   return slugOrId ? `/series/${slugOrId}` : "/products";
 }
+
+/**
+ * A WhatsApp link from whatever the merchant typed: `01012345678`,
+ * `+20 10 1234 5678`, `0020…`, or a whole wa.me / api.whatsapp.com URL.
+ * Undefined when there is no usable number.
+ *
+ * Themes build these inline and only strip non-digits, so a local Egyptian
+ * number becomes `wa.me/010…`, which WhatsApp cannot open.
+ */
+export function whatsappHref(raw: string | undefined | null): string | undefined {
+  const value = (raw ?? "").trim();
+  if (/^https?:\/\//i.test(value)) return value;
+  let digits = value.replace(/\D/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  // ponytail: a local number (leading 0) is read as Egyptian (+20); use the
+  // store's country once non-Egyptian stores rely on this.
+  else if (digits.startsWith("0")) digits = `20${digits.slice(1)}`;
+  return digits.length >= 8 ? `https://wa.me/${digits}` : undefined;
+}

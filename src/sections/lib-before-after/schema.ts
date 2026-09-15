@@ -1,0 +1,75 @@
+import type { LibrarySectionSchema } from "../types";
+
+/** Setting ids match Vionne's `vionne-image-comparison` one-for-one. */
+export const beforeAfterSchema: LibrarySectionSchema = {
+  type: "lib-before-after",
+  name: "Before / After",
+  name_ar: "قبل / بعد",
+  locales: { en: { name: "Before / After" }, ar: { name: "قبل / بعد" } },
+  settings: [
+    { type: "header", content: "Content", locales: { ar: { content: "المحتوى" } } },
+    { id: "eyebrow", type: "text", label: "Eyebrow", locales: { ar: { label: "نص صغير فوق العنوان" } }, default: "" },
+    { id: "title", type: "text", label: "Title", locales: { ar: { label: "العنوان" } }, default: "" },
+    { id: "subtitle", type: "text", label: "Subtitle", locales: { ar: { label: "العنوان الفرعي" } }, default: "" },
+    { type: "header", content: "Images", locales: { ar: { content: "الصور" } } },
+    { id: "before_image", type: "image_picker", label: "\"Before\" image", locales: { ar: { label: "صورة «قبل»" } }, aspect_ratio: "3/4", default: "" },
+    { id: "before_label", type: "text", label: "\"Before\" label", locales: { ar: { label: "كلمة «قبل»" } }, default: "" },
+    { id: "after_image", type: "image_picker", label: "\"After\" image", locales: { ar: { label: "صورة «بعد»" } }, aspect_ratio: "3/4", default: "" },
+    { id: "after_label", type: "text", label: "\"After\" label", locales: { ar: { label: "كلمة «بعد»" } }, default: "" },
+    { type: "header", content: "Behaviour", locales: { ar: { content: "الحركة" } } },
+    {
+      id: "initial_position",
+      type: "range",
+      label: "Divider start position (%)",
+      locales: { ar: { label: "مكان الفاصل في الأول (%)" } },
+      default: 50,
+      min: 5,
+      max: 95,
+      step: 5,
+    },
+    {
+      id: "animate_to_center",
+      type: "checkbox",
+      label: "Slide the divider in when the section appears",
+      locales: { ar: { label: "حرّك الفاصل أول ما القسم يظهر" } },
+      default: true,
+    },
+    {
+      id: "show_labels",
+      type: "checkbox",
+      label: "Show the before/after labels",
+      locales: { ar: { label: "اظهر كلمتي «قبل» و«بعد»" } },
+      default: false,
+    },
+    { type: "header", content: "Layout", locales: { ar: { content: "الشكل" } } },
+    {
+      id: "full_width",
+      type: "checkbox",
+      label: "Full width (edge to edge)",
+      locales: { ar: { label: "بعرض الشاشة كلها" } },
+      default: true,
+    },
+    {
+      id: "aspect",
+      type: "select",
+      label: "Image shape",
+      locales: { ar: { label: "شكل الصورة" } },
+      default: "3-4",
+      options: [
+        { value: "3-4", label: "3:4 (portrait)", label_ar: "3:4 (طولي)" },
+        { value: "2-3", label: "2:3", label_ar: "2:3" },
+        { value: "1-1", label: "1:1 (square)", label_ar: "1:1 (مربع)" },
+        { value: "4-3", label: "4:3", label_ar: "4:3" },
+        { value: "16-9", label: "16:9 (wide)", label_ar: "16:9 (عريض)" },
+      ],
+    },
+  ],
+  presets: [
+    {
+      name: "Before / After",
+      category: "content",
+      locales: { en: { name: "Before / After" }, ar: { name: "قبل / بعد" } },
+      settings: { initial_position: 50, animate_to_center: true, show_labels: true, full_width: true, aspect: "3-4" },
+    },
+  ],
+};

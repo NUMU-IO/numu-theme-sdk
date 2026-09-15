@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { inStock } from "../commerce/core";
 import { useCart } from "../hooks/useCart";
 import type { Product, ProductVariant } from "../types/entities";
 
@@ -54,8 +55,10 @@ export function AddToCartButton({
   const { addItem } = useCart();
   const [state, setState] = useState<"idle" | "adding" | "error">("idle");
 
-  const inStock = variant?.in_stock ?? product.in_stock;
-  if (!inStock) {
+  // `inStock` reads `in_stock` and `is_in_stock`: related-products payloads
+  // only send the latter, and reading `in_stock` alone greyed them all out.
+  const stocked = variant ? (variant.is_in_stock ?? variant.in_stock ?? true) : inStock(product);
+  if (!stocked) {
     return (
       <button
         type="button"
@@ -75,7 +78,10 @@ export function AddToCartButton({
       // addItem itself falls back to the live useVariantSelection state for
       // this product when no explicit axes are passed; the backend only uses
       // them when the variant row can't name itself (empty option_values).
-      await addItem(product.id, variant?.id, quantity, selectedOptions);
+      const result = await addItem(product.id, variant?.id, quantity, selectedOptions);
+      // addItem RESOLVES { ok: false } on a refused add (sold out, stock cap);
+      // it does not throw, so a refusal must not look like success.
+      if (result && result.ok === false) throw new Error(result.message || "add refused");
       setState("idle");
       onAdded?.(product, variant);
     } catch {

@@ -1,0 +1,97 @@
+import type { LibrarySectionSchema } from "../types";
+
+export const gallerySchema: LibrarySectionSchema = {
+  type: "lib-gallery",
+  name: "Photo gallery",
+  name_ar: "معرض صور",
+  locales: { en: { name: "Photo gallery" }, ar: { name: "معرض صور" } },
+  settings: [
+    {
+      id: "style",
+      type: "select",
+      label: "Style",
+      locales: { ar: { label: "الشكل" } },
+      default: "grid",
+      options: [
+        { value: "grid", label: "Grid — square tiles, like Instagram", label_ar: "مربعات زي إنستجرام" },
+        { value: "looks", label: "Looks — photos with a name, caption and product link", label_ar: "لوكات بالاسم والوصف ولينك المنتج" },
+        { value: "masonry", label: "Masonry — photos at their own heights", label_ar: "صور متداخلة بأطوالها الطبيعية" },
+      ],
+    },
+    { type: "header", content: "Heading", locales: { ar: { content: "العنوان" } } },
+    { id: "heading", type: "text", label: "Heading", locales: { ar: { label: "العنوان" } }, default: "" },
+    { id: "subtitle", type: "text", label: "Subtitle", locales: { ar: { label: "عنوان فرعي" } }, default: "" },
+    {
+      id: "handle",
+      type: "text",
+      label: "Account handle",
+      info: "For example @yourbrand. Shown next to the heading.",
+      locales: { ar: { label: "اسم الحساب", info: "زي ‎@yourbrand. بيظهر جنب العنوان." } },
+      default: "",
+    },
+    {
+      id: "visit_url",
+      type: "url",
+      label: "“Follow us” link",
+      info: "Leave empty to hide the button.",
+      locales: { ar: { label: "لينك «تابعنا»", info: "سيبه فاضي علشان الزرار يختفي." } },
+      default: "",
+    },
+    { type: "header", content: "Layout", locales: { ar: { content: "الترتيب" } } },
+    { id: "columns_desktop", type: "range", label: "Columns on desktop", locales: { ar: { label: "عدد الأعمدة على الكمبيوتر" } }, default: 4, min: 2, max: 6, step: 1 },
+    { id: "columns_mobile", type: "range", label: "Columns on mobile", locales: { ar: { label: "عدد الأعمدة على الموبايل" } }, default: 2, min: 1, max: 3, step: 1 },
+  ],
+  blocks: [
+    {
+      type: "photo",
+      name: "Photo",
+      name_ar: "صورة",
+      locales: { en: { name: "Photo" }, ar: { name: "صورة" } },
+      settings: [
+        {
+          id: "image",
+          type: "image_picker",
+          label: "Image",
+          info: "A photo shows only when it has an image.",
+          locales: { ar: { label: "الصورة", info: "الصورة مش هتظهر غير لما ترفعها." } },
+          default: "",
+        },
+        { id: "link", type: "url", label: "Photo link", locales: { ar: { label: "لينك الصورة" } }, default: "" },
+        {
+          id: "name",
+          type: "text",
+          label: "Name",
+          info: "Shown in the Looks style only.",
+          locales: { ar: { label: "الاسم", info: "بيظهر في شكل اللوكات بس." } },
+          default: "",
+        },
+        {
+          id: "caption",
+          type: "text",
+          label: "Caption",
+          info: "Shown in the Looks style only.",
+          locales: { ar: { label: "الوصف", info: "بيظهر في شكل اللوكات بس." } },
+          default: "",
+        },
+        {
+          id: "product_label",
+          type: "text",
+          label: "Product link text",
+          info: "Leave empty to show “Shop this look”.",
+          locales: { ar: { label: "كلام لينك المنتج", info: "لو سبته فاضي هيظهر «اتسوّق اللوك»." } },
+          default: "",
+        },
+        { id: "product_link", type: "url", label: "Product link", locales: { ar: { label: "لينك المنتج" } }, default: "" },
+      ],
+    },
+  ],
+  max_blocks: 24,
+  presets: [
+    {
+      name: "Photo gallery",
+      category: "content",
+      locales: { en: { name: "Photo gallery" }, ar: { name: "معرض صور" } },
+      settings: {},
+    },
+  ],
+};

@@ -2,19 +2,17 @@
  * Template + section-group resolution — the "no blank page" engine.
  *
  * This is engine policy, not theme code, and it was copy-pasted into every
- * theme: `src/sections/_template-utils.ts` is BYTE-IDENTICAL across 11 of the
- * 14 themes that carry it (md5 59608dd4f4a702136854d7aaf33ba5e3); the
- * remaining copies differ only in comments and brace style. The file's own
- * header instructed theme authors to copy it and said it could be deleted
+ * theme: `src/sections/_template-utils.ts` is BYTE-IDENTICAL across 10 of the
+ * 13 themes that carry it (md5 e14ec2787f83e082af58e973b3dc3518); the other
+ * three share one variant (md5 59608dd4f4a702136854d7aaf33ba5e3). The file's
+ * own header instructed theme authors to copy it and said it could be deleted
  * "once the published SDK ships its own sanitizeTemplate". This is that.
  *
  * Why centralising it is safe — and why it matters:
  *   - It contains ZERO design. It decides WHICH sections render, never how
  *     they look, so it cannot homogenise themes.
- *   - Getting it subtly wrong renders an EMPTY STORE. Empire re-implemented a
- *     weaker version inline with no unknown-type filtering, so a stale
- *     customisation renders "Unknown section" placeholders there while every
- *     other theme degrades gracefully. One implementation removes that class.
+ *   - Getting it subtly wrong renders an EMPTY STORE, and every copy is one
+ *     more place to get it wrong. One implementation removes that class.
  *
  * The two rules it encodes, both learned from real blank-page incidents:
  *   1. A template may arrive as an ARRAY or as a MAP + `order[]`. The

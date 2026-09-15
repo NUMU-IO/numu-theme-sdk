@@ -214,6 +214,12 @@ export type { LogoProps } from "./components/Logo";
 export { Link, NAVIGATE_EVENT, requestNavigate } from "./components/Link";
 export type { NavigateEventDetail } from "./components/Link";
 export { AddToCartButton } from "./components/AddToCartButton";
+// Shared commerce core (PHASE-7 Wave 2): price, stock and quick-add that work
+// on list, related and detail product payloads, plus the library's card.
+export { cardPrice, isDiscounted, discountPercent, inStock, fetchProductDetail, useQuickAdd } from "./commerce/core";
+export type { QuickAdd, QuickAddOptions, QuickAddState } from "./commerce/core";
+export { LibProductCard } from "./commerce/LibProductCard";
+export type { LibProductCardProps } from "./commerce/LibProductCard";
 export { Section, Block } from "./components/Section";
 export { Form } from "./components/Form";
 
@@ -224,6 +230,8 @@ export { CollectionCard } from "./components/CollectionCard";
 export type { CollectionCardProps, CollectionCardSlots } from "./components/CollectionCard";
 export { RichText, sanitizeHtml } from "./components/RichText";
 export type { RichTextProps } from "./components/RichText";
+// The CMS page title + body for themes without their own `page` body binding.
+export { CmsPageBody } from "./sections/CmsPageBody";
 export { CurrencySwitcher } from "./components/CurrencySwitcher";
 export type { CurrencySwitcherProps } from "./components/CurrencySwitcher";
 export { LocaleSwitcher } from "./components/LocaleSwitcher";
@@ -290,7 +298,7 @@ export type { ImageTransform } from "./utils/imageTransform";
 
 // Storefront route builders — the URL shape is platform knowledge, so themes
 // should ask for a href rather than hardcode the host's routing.
-export { productHref, collectionHref, seriesHref } from "./utils/routes";
+export { productHref, collectionHref, seriesHref, whatsappHref } from "./utils/routes";
 
 // Money formatting. EGP fallback, whole pounds, ar-EG — matching what the
 // fleet renders today, NOT theme-kit's USD/2-digit generic default.
@@ -333,3 +341,8 @@ export type { LocaleMessages, LocaleBundle } from "./utils/locales";
 // Contexts (for advanced use)
 export { ShopContext, ProductContext, CollectionContext, CartContext, CustomerContext, ThemeSettingsContext, LocalizationContext, PageContext, NavigationContext, CurrencyContext } from "./contexts";
 export type { MenuItemData, CartMutationResult, CartContextValue } from "./contexts";
+
+// Section library — `lib-*` sections any theme can render through a registry
+// fallback. Schemas ship separately via `@numueg/theme-sdk/section-library`.
+export { librarySection, isLibrarySection, preloadLibrarySections } from "./sections";
+export type { LibrarySectionProps } from "./sections";

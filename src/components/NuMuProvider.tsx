@@ -60,11 +60,18 @@ interface NuMuProviderProps {
    */
   pageTemplate?: string;
   /**
+   * The CMS page record the host sends on `page` routes (`page.data.page`:
+   * title/body and their `_i18n` maps). Published on PageContext as
+   * `data.page`, which `<CmsPageBody>` reads. Additive/optional.
+   */
+  cmsPage?: unknown;
+  /**
    * Pre-fetched product list for the current page. Themes that call
    * `useProducts()` will read these from PageContext without needing
    * `fetchIfMissing: true`. Hosts typically populate this from their
    * route loader / SSR pass; omitting it leaves `useProducts()`
-   * returning an empty array unless the theme opts into client fetch.
+   * returning an empty array unless the theme opts into client fetch
+   * (`fetchIfMissing`), which then fetches `/api/products` after mount.
    */
   initialProducts?: import("../types/entities").Product[];
   /**
@@ -310,6 +317,7 @@ export function NuMuProvider({
   translations: initialTranslations,
   currentTemplate = "home",
   pageTemplate,
+  cmsPage,
   initialProducts,
   initialCollections,
   navigation,
@@ -330,12 +338,17 @@ export function NuMuProvider({
         // surfaced via usePage()?.template. Omitted when undefined so a
         // page on its default template exposes no `template` field.
         ...(pageTemplate ? { template: pageTemplate } : {}),
+        // Only publish lists the host actually sent. An absent key is how
+        // `useProducts` / `useCollections` know to honour `fetchIfMissing`;
+        // defaulting to `[]` made every page look pre-fetched, so the fetch
+        // never ran on /cart, CMS pages or 404 and those sections stayed empty.
         data: {
-          products: initialProducts ?? [],
-          collections: initialCollections ?? [],
+          ...(initialProducts ? { products: initialProducts } : {}),
+          ...(initialCollections ? { collections: initialCollections } : {}),
+          ...(cmsPage ? { page: cmsPage } : {}),
         },
       }) as import("../types/entities").Page,
-    [currentTemplate, pageTemplate, store?.name, initialProducts, initialCollections],
+    [currentTemplate, pageTemplate, cmsPage, store?.name, initialProducts, initialCollections],
   );
   const [cart, setCart] = useState<Cart>(
     initialCart || { ...EMPTY_CART, currency: store.currency },

@@ -269,6 +269,7 @@ const ThemeMountBridge = forwardRef<
     collections?: Collection[];
     collection?: Collection;
     product?: Product;
+    page?: unknown;
   };
 
   const app = renderApp({
@@ -292,6 +293,7 @@ const ThemeMountBridge = forwardRef<
       initialCollections={pageData.collections}
       currentTemplate={template}
       pageTemplate={ctx.page?.template}
+      cmsPage={pageData.page}
     >
       {wrapEntityProviders(app, pageData)}
     </NuMuProvider>

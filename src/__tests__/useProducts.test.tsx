@@ -23,9 +23,13 @@ import {
   ShopContext,
   type LocalizationState,
 } from "../contexts";
+import { NuMuProvider } from "../components/NuMuProvider";
 import type { Page, Store } from "../types/entities";
+import type { ThemeSettingsV3 } from "../types/theme";
 
 const store = { id: "store-1", name: "Vionne" } as unknown as Store;
+const providerStore = { id: "store-1", name: "Vionne", slug: "vionne", currency: "EGP", default_language: "en" } as unknown as Store;
+const themeSettings = { schema_version: 3, theme_id: "t", global_settings: {}, templates: {}, section_groups: {} } as unknown as ThemeSettingsV3;
 
 // useProducts → useShop → useLocale, so the localization context has to exist
 // even though nothing here reads a translated string.
@@ -139,6 +143,33 @@ describe("useProducts", () => {
     );
     await waitFor(() => expect(b.current.loading).toBe(false));
     expect(b.current.products).toHaveLength(2);
+  });
+
+  // Through the real provider, not a hand-built PageContext: NuMuProvider used
+  // to publish `products: []` when the host sent none, so `initial` was never
+  // null and fetchIfMissing never fired on /cart, CMS pages or 404.
+  it("fetches under the real NuMuProvider when the host sent no products", async () => {
+    const spy = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith("/api/products")) {
+        return new Response(JSON.stringify({ data: { items: [{ id: "p1" }] } }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ data: null }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", spy);
+    const provider = (initialProducts?: Array<{ id: string }>) =>
+      ({ children }: { children: ReactNode }) =>
+        createElement(NuMuProvider, { store: providerStore, themeSettings, initialProducts: initialProducts as never }, children);
+
+    const { result } = renderHook(() => useProducts({ fetchIfMissing: true }), { wrapper: provider() });
+    await waitFor(() => expect(result.current.products.map((p) => p.id)).toEqual(["p1"]));
+
+    spy.mockClear();
+    const { result: sent } = renderHook(() => useProducts({ fetchIfMissing: true }), {
+      wrapper: provider([{ id: "ssr" }]),
+    });
+    expect(sent.current.products.map((p) => p.id)).toEqual(["ssr"]);
+    expect(spy.mock.calls.some(([u]) => String(u).startsWith("/api/products"))).toBe(false);
   });
 
   it("commits an empty list — not a crash — on an unrecognized shape", async () => {
