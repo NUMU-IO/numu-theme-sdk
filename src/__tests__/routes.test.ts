@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectionHref, productHref, seriesHref } from "../utils/routes";
+import { collectionHref, productHref, seriesHref, whatsappHref } from "../utils/routes";
 
 describe("productHref", () => {
   // Verbatim behaviour of the copy that shipped in 4 themes + 4 scaffolds --
@@ -60,5 +60,23 @@ describe("seriesHref", () => {
   it("builds a series route and safely handles missing data", () => {
     expect(seriesHref("harry-potter")).toBe("/series/harry-potter");
     expect(seriesHref(undefined)).toBe("/products");
+  });
+});
+
+describe("whatsappHref", () => {
+  // The inline theme builders strip non-digits only, so "010…" became
+  // wa.me/010…, a link WhatsApp cannot open.
+  it("turns the ways merchants type a number into an international wa.me link", () => {
+    for (const typed of ["010 1234 5678", "01012345678", "+20 10 1234 5678", "00201012345678", "+20-101-234-5678"]) {
+      expect(whatsappHref(typed)).toBe("https://wa.me/201012345678");
+    }
+  });
+
+  it("keeps a pasted link and rejects anything without a number", () => {
+    expect(whatsappHref(" https://wa.me/201012345678?text=hi ")).toBe("https://wa.me/201012345678?text=hi");
+    expect(whatsappHref("")).toBeUndefined();
+    expect(whatsappHref(undefined)).toBeUndefined();
+    expect(whatsappHref("call us")).toBeUndefined();
+    expect(whatsappHref("javascript:alert(1)")).toBeUndefined();
   });
 });

@@ -13,6 +13,7 @@ export default defineConfig({
     validation: "src/validation/index.ts",
     verify: "src/verify/index.ts",
     "v2-compat": "src/v2-compat.ts",
+    "section-library": "src/sections/catalog.ts",
   },
   format: ["esm", "cjs"],
   dts: true,

@@ -95,6 +95,8 @@ export interface SectionSchema {
   type: string;
   name: string;
   name_ar?: string;
+  /** Localized section name; the V3 editor reads `locales.<lang>.name`. */
+  locales?: { en?: { name?: string }; ar?: { name?: string } };
   tag?: string;
   class?: string;
   limit?: number;
@@ -108,6 +110,7 @@ export interface BlockSchema {
   type: string;
   name: string;
   name_ar?: string;
+  locales?: { en?: { name?: string }; ar?: { name?: string } };
   limit?: number;
   settings: SettingDefinition[];
   /** Child block types this block accepts (recursive). When present,
@@ -193,6 +196,11 @@ export interface SettingDefinition {
   visible_if?: VisibleIf;
   /** Aspect hint for image_picker previews + server crops, e.g. "16/9". */
   aspect_ratio?: string;
+  /** Localized label/info/placeholder; the V3 editor reads `locales.<lang>.*`. */
+  locales?: {
+    en?: { label?: string; info?: string; placeholder?: string };
+    ar?: { label?: string; info?: string; placeholder?: string };
+  };
 }
 
 export interface PresetBlock {
@@ -214,6 +222,8 @@ export interface SectionPreset {
   };
   settings?: Record<string, any>;
   blocks?: PresetBlock[];
+  /** Add-section dialog chip (e.g. "content", "marketing"). */
+  category?: string;
 }
 
 /**

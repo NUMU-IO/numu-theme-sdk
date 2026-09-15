@@ -1,6 +1,6 @@
 {
   "name": "@numueg/theme-sdk",
-  "version": "0.13.4",
+  "version": "0.14.0",
   "description": "NUMU Theme SDK — typed hooks, components, and utilities for building NUMU storefront themes",
   "keywords": [
     "numu",
@@ -60,6 +60,12 @@
       "import": "./dist/v2-compat.mjs",
       "require": "./dist/v2-compat.cjs"
     },
+    "./section-library": {
+      "types": "./dist/section-library.d.ts",
+      "import": "./dist/section-library.mjs",
+      "require": "./dist/section-library.cjs"
+    },
+    "./section-library.json": "./dist/section-library.json",
     "./package.json": "./package.json"
   },
   "sideEffects": false,
@@ -73,7 +79,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/write-section-library-json.mjs",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
