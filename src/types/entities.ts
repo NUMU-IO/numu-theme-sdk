@@ -63,6 +63,25 @@ export interface Store {
    * of the SDK; narrow it at the read site.
    */
   settings?: Record<string, unknown>;
+  /**
+   * Enabled app installs for this store, each `{slug, settings}` already
+   * filtered to the manifest's `public_settings` allowlist server-side.
+   *
+   * It rides the STORE payload rather than its own fetch on purpose. `useApp()`
+   * resolves client-side after hydration, so a component that waited for it
+   * would SSR the theme's own markup, swap to the app's after hydration, and
+   * drop one of the two — a visible double render and a layout shift on every
+   * product page and grid card. Shipping install state with the store is what
+   * lets the first paint already be correct.
+   */
+  installed_apps?: InstalledApp[];
+}
+
+/** One enabled app install, as the storefront payload carries it. */
+export interface InstalledApp {
+  slug: string;
+  /** Public settings only. Anything secret never leaves the server. */
+  settings?: Record<string, unknown>;
 }
 
 /** Product entity */
@@ -143,6 +162,24 @@ export interface ProductOption {
   name: string;
   position: number;
   values: string[];
+  /**
+   * Decoration, positionally aligned with `values` — index `i` of each array
+   * describes `values[i]`. An entry may be null/absent where the merchant set
+   * nothing for that value.
+   *
+   * These live on `product.attributes` in the database (written by the hub's
+   * main product editor) and are merged onto the axis by the API. The SDK
+   * declared none of them, which is why themes hand-cast the option to read a
+   * hex. A gap here is normal, not an error: fall back down the ladder
+   * (explicit hex -> the value's image -> a text pill), never to a grey chip.
+   */
+  hex_values?: (string | null)[];
+  /** Per-value image URL, aligned with `values`. */
+  image_values?: (string | null)[];
+  /** Arabic axis name, e.g. `اللون` for `Color`. */
+  name_ar?: string;
+  /** Arabic value labels, aligned with `values`. */
+  values_ar?: (string | null)[];
 }
 
 /**

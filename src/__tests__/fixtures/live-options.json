@@ -1,0 +1,104 @@
+{
+  "elegance-baby-blue": {
+    "store": "vionne",
+    "canonical_options_present": true,
+    "options": [
+      {
+        "name": "Color",
+        "position": 0,
+        "values": [
+          "Baby blue 1",
+          "Baby blue 2",
+          "Petroleum"
+        ],
+        "name_ar": "اللون",
+        "values_ar": [
+          "لبني ١",
+          "لبني ٢",
+          "بترولي"
+        ],
+        "hex_values": [
+          "#b9c5cf",
+          "#aac2d8",
+          "#5c6a7a"
+        ]
+      }
+    ]
+  },
+  "sponge-taupe": {
+    "store": "vionne",
+    "canonical_options_present": true,
+    "options": [
+      {
+        "name": "Color",
+        "position": 0,
+        "values": [
+          "Taupe",
+          "Cafe",
+          "Chocolate"
+        ],
+        "name_ar": "اللون",
+        "values_ar": [
+          "بيج رمادي",
+          "كافيه",
+          "شوكولاتة"
+        ],
+        "hex_values": [
+          "#c9b19b",
+          "#9d7f72",
+          "#582a24"
+        ]
+      }
+    ]
+  },
+  "nike-3-signs": {
+    "store": "rabbit",
+    "canonical_options_present": false,
+    "options": [
+      {
+        "name": "Color",
+        "position": 0,
+        "values": [
+          "White",
+          "Black"
+        ],
+        "name_ar": "اللون",
+        "values_ar": [
+          "أبيض",
+          "اسود"
+        ],
+        "hex_values": [
+          "#fafafa",
+          "#111111"
+        ],
+        "image_values": [
+          "https://numueg.app/uploads/products/e520515b1447.webp",
+          "https://numueg.app/uploads/products/8a5bfdf8d2e0.webp"
+        ]
+      }
+    ]
+  },
+  "classic-nike": {
+    "store": "rabbit",
+    "canonical_options_present": false,
+    "options": [
+      {
+        "name": "Color",
+        "position": 0,
+        "values": [
+          "White",
+          "black"
+        ],
+        "name_ar": "اللون",
+        "values_ar": [
+          "ابيض",
+          "اسود"
+        ],
+        "hex_values": [
+          "#fafafa",
+          "#111111"
+        ]
+      }
+    ]
+  }
+}

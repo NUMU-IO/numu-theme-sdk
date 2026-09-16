@@ -11,3 +11,10 @@ export { Section, Block } from "./Section";
 export { Form } from "./Form";
 export { EditableText, EditableImage } from "./Editable";
 export type { EditableTextProps, EditableImageProps } from "./Editable";
+
+export { VariantPicker } from "./VariantPicker";
+export type {
+  VariantPickerProps,
+  VariantSwatchSettings,
+  OutOfStockMode,
+} from "./VariantPicker";

@@ -142,7 +142,29 @@ export {
   findVariantByOptions,
   defaultVariant,
   availableValues,
+  valueStates,
 } from "./utils/variants";
+export type { ValueState } from "./utils/variants";
+export { useInstalledApp, useHasApp } from "./hooks/useInstalledApp";
+export { VariantPicker } from "./components/VariantPicker";
+export type {
+  VariantPickerProps,
+  VariantSwatchSettings,
+  OutOfStockMode,
+} from "./components/VariantPicker";
+export {
+  isColorAxisName,
+  lexiconHex,
+  isHex,
+  normalizeColorKey,
+  DEFAULT_COLOR_AXIS_NAMES,
+} from "./utils/colorLexicon";
+export {
+  continuesSelling,
+  productBuyable,
+  variantBuyable,
+  isSoldOut,
+} from "./utils/availability";
 export { useVariantSelection } from "./hooks/useVariantSelection";
 export type { UseVariantSelection } from "./hooks/useVariantSelection";
 // Selection registry — useVariantSelection publishes the live picker axes
