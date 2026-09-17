@@ -7,6 +7,7 @@
  */
 
 import type { Product, ProductVariant } from "../types/entities";
+import { variantBuyable } from "./availability";
 
 /**
  * Pick the variant that exactly matches the given option_values map.
@@ -50,39 +51,99 @@ export function defaultVariant(product: Pick<Product, "variants">): ProductVaria
 }
 
 /**
- * Given a partial selection (e.g. just Size=M, no Color yet), return
- * the set of values still available on each unselected axis. Themes
- * use this to disable swatches whose paired variants are all out of
- * stock for the current selection.
+ * How a single option value should be treated, given the current selection.
+ *
+ * Three states, because the fleet shipped with two and the two were mislabelled:
+ *
+ *   • `buyable`     — at least one variant matches and can be bought.
+ *   • `out_of_stock`— a variant exists for this combination, with no stock.
+ *   • `unreachable` — no variant exists for it at all, given the locked axes.
+ *
+ * `out_of_stock` and `unreachable` are different sentences to a shopper ("back
+ * soon" vs "doesn't come that way") and want different treatments, so they are
+ * not collapsed here.
  */
-export function availableValues(
-  product: Pick<Product, "options" | "variants">,
+export type ValueState = "buyable" | "out_of_stock" | "unreachable";
+
+/**
+ * Per-axis, per-value state given the current (possibly partial) selection.
+ *
+ * Asked per value with the OTHER axes held at the current selection, so it
+ * stays correct on a PDP that auto-selects every axis on first render — the
+ * common case, and the one a "which values are left on the UNSELECTED axes"
+ * reading answers with an empty map.
+ *
+ * An axis whose variants carry no `option_values` data at all is UNKNOWN, not
+ * sold out: every value comes back `buyable`. That is the legacy shape, where
+ * axes are derived from `attributes.variants` and the product has no
+ * SKU-tracked variant rows. Rendering that as a row of struck-through swatches
+ * would be a confident lie.
+ */
+export function valueStates(
+  product: Pick<Product, "options" | "variants"> & Partial<Pick<Product, "in_stock" | "attributes">>,
   selection: Record<string, string>,
-): Record<string, Set<string>> {
+): Record<string, Record<string, ValueState>> {
   const axes = product.options || [];
   const variants = product.variants || [];
-  const out: Record<string, Set<string>> = {};
+  const out: Record<string, Record<string, ValueState>> = {};
+
   for (const axis of axes) {
-    const set = new Set<string>();
-    for (const v of variants) {
+    const states: Record<string, ValueState> = {};
+    // Does ANY variant describe this axis? If not, availability is unknowable
+    // and every declared value stays clickable.
+    const axisIsTracked = variants.some((v) => {
       const opts = v.option_values || v.options || {};
-      // Only consider variants compatible with the locked-in part of
-      // the selection (every locked axis must match this variant).
-      const compatible = Object.entries(selection).every(
-        ([k, val]) => k === axis.name || opts[k] === val,
-      );
-      if (compatible && opts[axis.name]) {
-        set.add(opts[axis.name]);
+      return Boolean(opts[axis.name]);
+    });
+
+    for (const value of axis.values || []) {
+      if (!axisIsTracked) {
+        states[value] = "buyable";
+        continue;
       }
+      // Hold every OTHER axis at the current selection and probe this value.
+      const probe = { ...selection, [axis.name]: value };
+      const matching = variants.filter((v) => {
+        const opts = v.option_values || v.options || {};
+        return Object.entries(probe).every(([k, val]) => opts[k] === val);
+      });
+      if (matching.length === 0) states[value] = "unreachable";
+      else if (matching.some((v) => variantBuyable(product, v))) states[value] = "buyable";
+      else states[value] = "out_of_stock";
     }
-    // When NO variant carries option-value data for this axis, availability
-    // is UNKNOWN — not "all sold out". This happens for legacy products whose
-    // axes live in `attributes.variants` (derived into `options`) but have no
-    // SKU-tracked variant rows, so every `variant.option_values` is empty.
-    // Falling back to the axis's declared values keeps the picker usable
-    // instead of rendering every swatch struck-through. A genuinely
-    // constrained axis (≥1 variant with data) keeps its computed set.
-    out[axis.name] = set.size > 0 ? set : new Set(axis.values || []);
+    out[axis.name] = states;
+  }
+  return out;
+}
+
+/**
+ * Given a selection, the set of values on each axis that can actually be BOUGHT.
+ *
+ * ## What changed, and why a theme may see more struck-through swatches
+ *
+ * This used to read only `option_values` and the axis's declared values, never
+ * `is_in_stock` / `in_stock` / `inventory_quantity` — so it computed combination
+ * REACHABILITY while its own JSDoc, and every theme rendering it as `line-through`
+ * or `opacity-50`, claimed it meant "sold out". A genuinely sold-out variant
+ * rendered as an ordinary clickable option and the shopper found out at Add to
+ * cart. It now means what it always said it meant.
+ *
+ * Kept returning `Record<string, Set<string>>` so the 19 themes reading it need
+ * no change. Themes wanting to tell "out of stock" from "doesn't exist" apart
+ * should read {@link valueStates} instead.
+ */
+export function availableValues(
+  product: Pick<Product, "options" | "variants"> & Partial<Pick<Product, "in_stock" | "attributes">>,
+  selection: Record<string, string>,
+): Record<string, Set<string>> {
+  const states = valueStates(product, selection);
+  const out: Record<string, Set<string>> = {};
+  for (const [axis, values] of Object.entries(states)) {
+    out[axis] = new Set(
+      Object.entries(values)
+        .filter(([, state]) => state === "buyable")
+        .map(([value]) => value),
+    );
   }
   return out;
 }

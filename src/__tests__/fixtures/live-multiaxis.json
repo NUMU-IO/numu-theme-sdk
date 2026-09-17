@@ -1,0 +1,90 @@
+{
+  "note": "Captured from a RUNNING local API on the Wave 1 + Wave 3 branch, 2026-09-16.",
+  "options": [
+    {
+      "name": "Size",
+      "values": [
+        "S",
+        "M"
+      ],
+      "position": 1,
+      "name_ar": "المقاس",
+      "values_ar": [
+        "صغير",
+        "وسط"
+      ]
+    },
+    {
+      "name": "Color",
+      "values": [
+        "Red",
+        "Blue"
+      ],
+      "position": 2,
+      "name_ar": "اللون",
+      "values_ar": [
+        "أحمر",
+        "أزرق"
+      ],
+      "hex_values": [
+        "#d32f2f",
+        null
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "id": "b857da33-4873-4d7a-b9a4-c66ac1298257",
+      "position": 0,
+      "option_values": {
+        "Size": "M",
+        "Color": "Red"
+      },
+      "price": "220.00",
+      "inventory_quantity": 0,
+      "is_in_stock": false
+    },
+    {
+      "id": "ddc49d72-04f7-4b65-89b3-976bcb10892a",
+      "position": 0,
+      "option_values": {
+        "Size": "S",
+        "Color": "Red"
+      },
+      "price": "200.00",
+      "inventory_quantity": 5,
+      "is_in_stock": true
+    },
+    {
+      "id": "26efdf7e-cf35-4b8d-ab1b-e382df763d54",
+      "position": 0,
+      "option_values": {
+        "Size": "S",
+        "Color": "Blue"
+      },
+      "price": "210.00",
+      "inventory_quantity": 6,
+      "is_in_stock": true
+    },
+    {
+      "id": "b0f4f0b9-1897-476a-9a86-ba24459e7f35",
+      "position": 0,
+      "option_values": {
+        "Size": "M",
+        "Color": "Blue"
+      },
+      "price": "230.00",
+      "inventory_quantity": 8,
+      "is_in_stock": true
+    }
+  ],
+  "installed_apps": [
+    {
+      "slug": "variant-swatches",
+      "settings": {
+        "out_of_stock": "hide",
+        "swatch_shape": "square"
+      }
+    }
+  ]
+}
