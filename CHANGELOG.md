@@ -4,7 +4,33 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
-## [0.14.0] - unreleased
+## [0.16.0] - 2026-09-20
+
+### Added
+
+- **`useDiscountCode()`** — the discount-code box, minus the markup: input
+  value, `applied` code, `busy`, the backend's own `error`, plus `apply`,
+  `submit` and `remove`. Themes render whatever they like around it.
+
+  It exists because `applyDiscount` REPORTS a rejection
+  (`{ ok: false, message }`) rather than throwing, and every theme that
+  hand-rolled a coupon box got that wrong in one of two directions. A
+  `try/catch` around the call never fires, so a wrong code cleared the input
+  and told the shopper nothing — which reads as "this store's codes don't
+  work". Testing for invented fields (`res.success`, `res.code_discount_cents`)
+  matches nothing either, so a perfectly valid code reported failure just as
+  loudly. The hook owns that one decision and surfaces the real reason
+  ("This coupon has expired", "does not apply to this cart"), which is the
+  difference between a shopper fixing their cart and a shopper giving up.
+
+## [0.15.0] - 2026-09-17
+
+### Added
+
+- `VariantPicker` swatch primitive, availability utils, and `useInstalledApp`.
+  (Recorded after the fact — this release shipped without a changelog entry.)
+
+## [0.14.0] - 2026-09-15
 
 ### Added
 

@@ -5,6 +5,7 @@ export { useCollection, useCollectionOptional } from "./useCollection";
 export { useListingHeading } from "./useListingHeading";
 export type { ListingHeading, ListingHeadingOptions } from "./useListingHeading";
 export { useCart } from "./useCart";
+export { useDiscountCode } from "./useDiscountCode";
 export { useCustomer } from "./useCustomer";
 export { useThemeSettings } from "./useThemeSettings";
 export { useLocalization, useDirection, useTranslation } from "./useLocalization";

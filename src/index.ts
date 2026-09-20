@@ -29,6 +29,8 @@ export type {
   ListingHeadingOptions,
 } from "./hooks/useListingHeading";
 export { useCart } from "./hooks/useCart";
+export { useDiscountCode } from "./hooks/useDiscountCode";
+export type { DiscountCodeState } from "./hooks/useDiscountCode";
 export { useCustomer } from "./hooks/useCustomer";
 export { useThemeSettings } from "./hooks/useThemeSettings";
 export { useCurrentTemplate } from "./hooks/useCurrentTemplate";
