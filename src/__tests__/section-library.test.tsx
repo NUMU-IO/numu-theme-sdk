@@ -585,7 +585,9 @@ describe("lib-marquee", () => {
   it("applies style defaults, direction and a clamped speed", async () => {
     const html = await render("lib-marquee", { style: "statement", direction: "right", speed_seconds: 999, item_1: "Real denim" });
     expect(html).toContain('class="lib-section lib-marquee is-statement is-none is-xl is-right pause-hover"');
-    expect(html).toContain("--lib-mq-dur:120s");
+    // Clamped to 120 s; each track moves its full width, so the CSS runs twice as long.
+    expect(html).toContain("--lib-mq-dur:240s");
+    expect(html).toContain("translateX(-100%)");
     expect(html).not.toContain('class="lib-mq-sep"');
   });
 });

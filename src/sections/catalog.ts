@@ -24,6 +24,7 @@ import { processSchema } from "./lib-process/schema";
 import { productRailSchema } from "./lib-product-rail/schema";
 import { promoBannerSchema } from "./lib-promo-banner/schema";
 import { richTextSchema } from "./lib-rich-text/schema";
+import { reviewImagesSchema } from "./lib-review-images/schema";
 import { shopTheLookSchema } from "./lib-shop-the-look/schema";
 import { sizeGuideSchema } from "./lib-size-guide/schema";
 import { storeVisitSchema } from "./lib-store-visit/schema";
@@ -54,6 +55,7 @@ export const sectionLibraryCatalog: Record<string, LibrarySectionSchema> = {
   [productRailSchema.type]: productRailSchema,
   [promoBannerSchema.type]: promoBannerSchema,
   [richTextSchema.type]: richTextSchema,
+  [reviewImagesSchema.type]: reviewImagesSchema,
   [shopTheLookSchema.type]: shopTheLookSchema,
   [sizeGuideSchema.type]: sizeGuideSchema,
   [storeVisitSchema.type]: storeVisitSchema,

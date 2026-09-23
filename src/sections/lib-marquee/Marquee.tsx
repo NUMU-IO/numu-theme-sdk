@@ -7,8 +7,10 @@
  * vionne/editorial's coloured strip of items with separators, `statement` is
  * genova's quiet large sentence, and `tilted` is neo-brutalism's rotated tape.
  *
- * The loop renders the group twice and translates the track by exactly -50%,
- * so the copy lands where the original started: no jump at the seam. The moving
+ * The loop renders the group in two tracks and moves each by exactly its own
+ * width, so the second lands where the first started: no jump at the seam,
+ * whatever the group's length. (Moving each by -50% jumped unless the group
+ * happened to repeat an even number of times.) The moving
  * track is forced LTR so the direction setting means the same thing in Arabic;
  * each line keeps `dir="auto"`. Motion stops for prefers-reduced-motion.
  */
@@ -45,7 +47,7 @@ const CSS = `
 .lib-marquee.is-statement .lib-mq-item{padding-inline:2.5rem;font-family:var(--theme-font-heading,inherit)}
 :lang(ar) .lib-marquee .lib-mq-item,[dir="rtl"] .lib-marquee .lib-mq-item{letter-spacing:normal;text-transform:none}
 .lib-mq-link{display:block;color:inherit;text-decoration:none}
-@keyframes lib-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes lib-marquee{from{transform:translateX(0)}to{transform:translateX(-100%)}}
 @media (prefers-reduced-motion:reduce){.lib-mq-track{animation:none}}
 `;
 
@@ -124,7 +126,7 @@ export default function Marquee({ instance }: LibrarySectionProps) {
     <section
       className={classes}
       aria-label={items.join(" · ")}
-      style={{ paddingBlock: `${paddingY}px`, ["--lib-mq-dur" as string]: `${duration}s` }}
+      style={{ paddingBlock: `${paddingY}px`, ["--lib-mq-dur" as string]: `${duration * 2}s` }}
     >
       <LibStyle id="lib-base" css={BASE_CSS} />
       <LibStyle id="lib-marquee" css={CSS} />

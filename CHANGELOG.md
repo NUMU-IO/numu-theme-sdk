@@ -4,6 +4,30 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
+## [0.17.0] - unreleased
+
+### Added
+
+- **`lib-review-images`** ("Review screenshots"), a library section for the
+  reviews Egyptian stores actually collect: screenshots of WhatsApp chats and
+  Instagram comments. The merchant uploads each one as a `review` block (up to
+  24), and they scroll sideways in an endless strip under a heading that
+  defaults to "What our customers say" / «آراء عملائنا». Settings: heading,
+  subtitle, direction, speed (slow / normal / fast, paced per screenshot so
+  the strip moves at the same speed however many there are) and image height
+  (160–560 px; phones cap it at 65% of the screen width). Pure CSS: it renders
+  on the server, pauses under the mouse, and for `prefers-reduced-motion` it
+  stands still and scrolls by hand. Screen readers hear each screenshot once;
+  the copies that keep the loop full are hidden from them.
+
+### Fixed
+
+- **`lib-marquee` jumped once per loop.** Each of its two tracks moved by -50%
+  of its own width, which lands on the same picture only when the lines repeat
+  an even number of times. With three lines (the default content) the strip
+  skipped part of a line at every loop. Each track now moves its full width,
+  and the CSS duration doubles, so the speed merchants chose is unchanged.
+
 ## [0.16.0] - 2026-09-20
 
 ### Added
