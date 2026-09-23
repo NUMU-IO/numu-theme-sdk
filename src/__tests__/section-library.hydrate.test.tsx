@@ -40,6 +40,7 @@ const FIXTURES: Record<string, { instance: Partial<SectionInstance>; text: strin
   "lib-logo-list": { instance: { settings: { heading: "Our brands" }, blocks: { l: { type: "logo", settings: { image: "/l.png", name: "Acme" } } }, block_order: ["l"] } as Partial<SectionInstance>, text: "Our brands" },
   "lib-made-to-order": { instance: { settings: { lead_time_text: "Ready in 5 days" } }, text: "Ready in 5 days" },
   "lib-rich-text": { instance: { settings: { heading: "About us", content: "<p>Hello text</p>" } }, text: "Hello text" },
+  "lib-review-images": { instance: { settings: { heading: "Loved by you" }, blocks: { r: { type: "review", settings: { image: "/r.jpg" } } }, block_order: ["r"] } as Partial<SectionInstance>, text: "Loved by you" },
   "lib-shop-the-look": { instance: { settings: { image: "/s.jpg" }, blocks: { h: { type: "hotspot", settings: { x: 30, y: 40, label: "Linen shirt" } } }, block_order: ["h"] } as Partial<SectionInstance>, text: "Linen shirt" },
   "lib-trust-strip": { instance: { settings: {}, blocks: { i: { type: "item", settings: { icon: "cash", title: "Cash on delivery" } } }, block_order: ["i"] } as Partial<SectionInstance>, text: "Cash on delivery" },
   "lib-before-after": { instance: { settings: { title: "Glow", after_image: "/a.jpg" } }, text: "Glow" },
