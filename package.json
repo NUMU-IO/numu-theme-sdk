@@ -14,7 +14,7 @@
   ],
   "license": "MIT",
   "author": "NUMU <hello@numueg.app>",
-  "homepage": "https://numueg.app/docs/sdk/overview",
+  "homepage": "https://developers.numueg.app/sdk/overview",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/NUMU-IO/numu-theme-sdk.git"
