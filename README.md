@@ -50,10 +50,10 @@ export function mount(el: HTMLElement, ctx: unknown) {
 
 ## Docs
 
-- [SDK Overview](https://numueg.app/docs/sdk/overview)
-- [Hooks Reference](https://numueg.app/docs/sdk/hooks)
-- [Components Reference](https://numueg.app/docs/sdk/components)
-- [Type Definitions](https://numueg.app/docs/sdk/types)
+- [SDK Overview](https://developers.numueg.app/sdk/overview)
+- [Hooks Reference](https://developers.numueg.app/sdk/hooks)
+- [Components Reference](https://developers.numueg.app/sdk/components)
+- [Type Definitions](https://developers.numueg.app/sdk/types)
 
 ## React versions
 
