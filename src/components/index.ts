@@ -12,6 +12,9 @@ export { Form } from "./Form";
 export { EditableText, EditableImage } from "./Editable";
 export type { EditableTextProps, EditableImageProps } from "./Editable";
 
+export { ProductAppSlot } from "./ProductAppSlot";
+export type { ProductAppSlotProps, ProductAppSlotPosition } from "./ProductAppSlot";
+
 export { VariantPicker } from "./VariantPicker";
 export type {
   VariantPickerProps,
