@@ -4,7 +4,30 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
-## [0.17.0] - unreleased
+## [0.18.0] - unreleased
+
+### Added
+
+- **`<ProductAppSlot position product variant />`**, a place on the product
+  page where installed apps render with no theme rebuild. Positions:
+  `below_title` (under the title and price), `before_buy` (above the quantity
+  and buy row) and `after_buy` (under it). Themes pass their own selected
+  variant. An app renders only when the store payload lists it as installed,
+  so a store without apps gets no markup, not even a wrapper element.
+- **Back in Stock's notify-me form** at `after_buy`, shown only while the
+  chosen variant (or, before a choice, the product) is sold out by the same
+  rule as `isSoldOut`. It asks the host's `/api/apps/back-in-stock/config`
+  once per page when it first shows, posts to
+  `/api/apps/back-in-stock/subscribe`, styles itself from the theme tokens
+  (`--theme-color-accent`, `--theme-color-background`, `--theme-color-error`),
+  never posts from the theme editor, and carries a honeypot. Phone field LTR
+  with `inputMode="tel"`; Egyptian Arabic and English copy. It renders on the
+  server, and the server markup equals the first client render.
+- **`useVariantSelection` reads `?variant=<id>`** after mount and selects that
+  variant when it belongs to the product (alert and ad deep links). The server
+  render is unchanged, so hydration never mismatches.
+
+## [0.17.0] - 2026-09-23
 
 ### Added
 

@@ -148,6 +148,10 @@ export {
 } from "./utils/variants";
 export type { ValueState } from "./utils/variants";
 export { useInstalledApp, useHasApp } from "./hooks/useInstalledApp";
+// App slots on the product page (0.18.0): installed apps render here with no
+// theme rebuild. `after_buy` carries Back in Stock's notify-me form.
+export { ProductAppSlot } from "./components/ProductAppSlot";
+export type { ProductAppSlotProps, ProductAppSlotPosition } from "./components/ProductAppSlot";
 export { VariantPicker } from "./components/VariantPicker";
 export type {
   VariantPickerProps,

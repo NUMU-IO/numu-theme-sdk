@@ -76,6 +76,18 @@ export function useVariantSelection(
     publishVariantSelection(product.id, selection);
   }, [product.id, selection]);
 
+  // `?variant=<id>` (a Back in Stock alert's link, an ad's deep link) picks that
+  // variant. After mount, so the server render and the first client render
+  // agree; keyed on the product id alone, so a theme that rebuilds the product
+  // object each render never undoes the shopper's own pick.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("variant");
+    const chosen = id ? product.variants?.find((v) => String(v.id) === id) : undefined;
+    const values = chosen?.option_values || chosen?.options;
+    if (values && Object.keys(values).length > 0) setSelection({ ...values });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
+
   const availability = useMemo(
     () => availableValues(product, selection),
     [product, selection],
