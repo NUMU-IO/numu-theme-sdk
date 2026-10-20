@@ -4,6 +4,15 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-10-20
+
+### Fixed
+
+- **`lib-product-reviews`** is filed under the hub's "Product detail" filter
+  (`product-detail`). Its preset said `product`, a category the add-section
+  dialog does not have, so it showed under "All" only. The library test now
+  checks every preset against the dialog's categories.
+
 ## [0.19.0] - 2026-10-20
 
 ### Added

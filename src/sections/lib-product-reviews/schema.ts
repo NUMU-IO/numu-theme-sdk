@@ -25,7 +25,7 @@ export const productReviewsSchema: LibrarySectionSchema = {
   presets: [
     {
       name: "Product reviews",
-      category: "product",
+      category: "product-detail",
       locales: { en: { name: "Product reviews" }, ar: { name: "تقييمات المنتج" } },
       settings: {},
     },
