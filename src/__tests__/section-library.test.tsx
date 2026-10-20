@@ -120,6 +120,10 @@ describe("library registry", () => {
   });
 });
 
+// The add-section dialog's filter chips (merchant hub AddSectionDialog CATEGORY_ORDER).
+// A preset outside them shows under "All" only.
+const HUB_CATEGORIES = ["hero", "products", "product-detail", "marketing", "content", "cart"];
+
 describe("library schemas", () => {
   for (const schema of Object.values(sectionLibraryCatalog)) {
     describe(schema.type, () => {
@@ -127,7 +131,7 @@ describe("library schemas", () => {
         expect(schema.locales?.ar?.name).toBeTruthy();
         for (const preset of schema.presets ?? []) {
           expect(preset.locales?.ar?.name).toBeTruthy();
-          expect(preset.category).toBeTruthy();
+          expect(HUB_CATEGORIES, preset.name).toContain(preset.category);
         }
         for (const s of schema.settings) {
           if (isDivider(s)) {
