@@ -22,6 +22,7 @@ import { materialsCareSchema } from "./lib-materials-care/schema";
 import { newsletterSchema } from "./lib-newsletter/schema";
 import { processSchema } from "./lib-process/schema";
 import { productRailSchema } from "./lib-product-rail/schema";
+import { productReviewsSchema } from "./lib-product-reviews/schema";
 import { promoBannerSchema } from "./lib-promo-banner/schema";
 import { richTextSchema } from "./lib-rich-text/schema";
 import { reviewImagesSchema } from "./lib-review-images/schema";
@@ -53,6 +54,7 @@ export const sectionLibraryCatalog: Record<string, LibrarySectionSchema> = {
   [newsletterSchema.type]: newsletterSchema,
   [processSchema.type]: processSchema,
   [productRailSchema.type]: productRailSchema,
+  [productReviewsSchema.type]: productReviewsSchema,
   [promoBannerSchema.type]: promoBannerSchema,
   [richTextSchema.type]: richTextSchema,
   [reviewImagesSchema.type]: reviewImagesSchema,
