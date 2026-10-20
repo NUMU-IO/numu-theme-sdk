@@ -4,7 +4,21 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
-## [0.18.0] - unreleased
+## [0.19.0] - 2026-10-20
+
+### Added
+
+- **`lib-product-reviews`**, the Reviews app's reviews on the product page:
+  the average, the spread of stars, then the reviews with the buyers' photos,
+  a verified-buyer mark and the store's replies, with "More reviews" paging.
+  It renders nothing unless the store has the Reviews app and the page has a
+  product. It asks the host's `/api/apps/reviews/products/<id>` once the
+  section nears the screen, holds the space with a fixed-height placeholder
+  meanwhile, and hides itself if the request fails. Theme colours only
+  (`currentColor`); stars run in the reading direction and a part star fills
+  from the start side. In the editor it shows a note instead.
+
+## [0.18.0] - 2026-10-12
 
 ### Added
 

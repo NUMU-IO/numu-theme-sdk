@@ -49,6 +49,7 @@ const LOADERS: Record<string, () => Promise<SectionModule>> = {
   "lib-newsletter": () => import("./lib-newsletter/Newsletter"),
   "lib-process": () => import("./lib-process/Process"),
   "lib-product-rail": () => import("./lib-product-rail/ProductRail"),
+  "lib-product-reviews": () => import("./lib-product-reviews/ProductReviews"),
   "lib-promo-banner": () => import("./lib-promo-banner/PromoBanner"),
   "lib-rich-text": () => import("./lib-rich-text/RichTextBlock"),
   "lib-review-images": () => import("./lib-review-images/ReviewImages"),

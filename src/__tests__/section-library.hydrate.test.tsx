@@ -17,7 +17,19 @@ import { librarySection } from "../sections";
 import { sectionLibraryCatalog } from "../sections/catalog";
 
 /** A filled-in instance per library section, and text it must show. */
-const FIXTURES: Record<string, { instance: Partial<SectionInstance>; text: string; products?: unknown[] }> = {
+const FIXTURES: Record<
+  string,
+  {
+    instance: Partial<SectionInstance>;
+    text: string;
+    products?: unknown[];
+    /** Added to the store payload (installed apps). */
+    store?: Partial<Store>;
+    page?: { type: string; data: Record<string, unknown> };
+    /** What the host's `/api/apps/…` relay answers. */
+    api?: unknown;
+  }
+> = {
   "lib-product-rail": {
     instance: { settings: { heading: "Picks" } },
     products: [{ id: "p1", name: "Linen shirt", slug: "linen-shirt", price: 300, compare_at_price: 400, currency: "EGP", images: [{ url: "/p.jpg" }], variants: [], in_stock: true }],
@@ -75,6 +87,20 @@ const FIXTURES: Record<string, { instance: Partial<SectionInstance>; text: strin
   },
   "lib-store-visit": { instance: { settings: { address: "12 Nile St", whatsapp: "01012345678" } }, text: "12 Nile St" },
   "lib-testimonials": { instance: { settings: { review_1_name: "Mona", review_1_text: "Lovely" } }, text: "Lovely" },
+  "lib-product-reviews": {
+    instance: { settings: { title: "Reviews" } },
+    store: { installed_apps: [{ slug: "reviews", settings: {} }] },
+    page: { type: "product", data: { product: { id: "p1", name: "Dress", slug: "dress", images: [], variants: [] } } },
+    api: {
+      summary: { average: 4.5, count: 2, distribution: { "1": 0, "2": 0, "3": 0, "4": 1, "5": 1 } },
+      reviews: [
+        { id: "r1", name: "Mona", rating: 5, title: null, body: "Lovely fabric", verified: true, photos: [], reply: null, created_at: null },
+      ],
+      page: 1,
+      has_more: false,
+    },
+    text: "Reviews",
+  },
   "lib-ugc-carousel": { instance: { settings: { title: "Reels", item_1_video: "/r.mp4" } }, text: "Reels" },
 };
 
@@ -92,7 +118,14 @@ describe("section library hydration", () => {
     it(`${type} hydrates SSR output with no recoverable errors`, async () => {
       // Mounting the provider stack fetches cart / customer / currencies.
       // Unit tests never reach the network.
-      vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 404 })));
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: unknown) =>
+          fixture.api && String(url).startsWith("/api/apps/")
+            ? Response.json(fixture.api)
+            : new Response("{}", { status: 404 }),
+        ),
+      );
       (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
       const Component = librarySection(type)!;
       const instance = { type, ...fixture.instance } as SectionInstance;
@@ -106,8 +139,8 @@ describe("section library hydration", () => {
       );
       const ctx = {
         themeSettings: { schema_version: 3, theme_id: "t", global_settings: {}, templates: {}, section_groups: {} } as unknown as ThemeSettingsV3,
-        storeData: { id: "s", name: "S", slug: "s", currency: "EGP", default_language: "en", use_nextjs_storefront: true } as Store,
-        page: { type: "home", data: { products: fixture.products ?? [] } },
+        storeData: { id: "s", name: "S", slug: "s", currency: "EGP", default_language: "en", use_nextjs_storefront: true, ...fixture.store } as Store,
+        page: fixture.page ?? { type: "home", data: { products: fixture.products ?? [] } },
         locale: "en",
         demo: false,
         navigation: {},
