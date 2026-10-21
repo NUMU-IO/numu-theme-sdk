@@ -8,7 +8,14 @@ export const faqSchema: LibrarySectionSchema = {
   // One FAQPage per page: a second FAQ section would duplicate the microdata.
   limit: 1,
   settings: [
-    { id: "heading", type: "text", label: "Heading", locales: { ar: { label: "العنوان" } }, default: "" },
+    {
+      id: "heading",
+      type: "text",
+      label: "Heading",
+      info: "On a product page, the product's own questions show first.",
+      locales: { ar: { label: "العنوان", info: "في صفحة المنتج، أسئلة المنتج نفسه بتظهر الأول." } },
+      default: "",
+    },
     {
       id: "show_group_headings",
       type: "checkbox",

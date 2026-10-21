@@ -11,9 +11,14 @@
  * FAQPage microdata annotates the visible text — no script tag, which the theme
  * contract forbids — and is emitted only when there are questions. Uses an h2,
  * not an h1, because the section can sit on any page.
+ *
+ * On a product page the product's own questions come first: its public
+ * `faq.items` metafield (written by the Lamaa app, or by hand), either
+ * `{ar: [...], en: [...]}` or one `[{question, answer}]` list.
  */
 
 import { Link } from "../../components/Link";
+import { useMetafield } from "../../hooks/useMetafield";
 import { useLocale } from "../../hooks/useLocalization";
 import { useResolvedSettings } from "../../hooks/useResolvedSettings";
 import { useInsideEditor } from "../InlineText";
@@ -45,12 +50,41 @@ const Chevron = () => (
   </svg>
 );
 
+type Item = { id: string; q: string; a: string };
+
+/** The visitor's language list, else the other one; items need both texts. */
+export function productQuestions(value: unknown, locale: string | undefined): Item[] {
+  let v = value;
+  if (typeof v === "string") {
+    try {
+      v = JSON.parse(v);
+    } catch {
+      return [];
+    }
+  }
+  const nonEmpty = (x: unknown) => (Array.isArray(x) && x.length > 0 ? x : null);
+  let list: unknown[] | null = nonEmpty(v);
+  if (!list && v && typeof v === "object") {
+    const byLang = v as Record<string, unknown>;
+    const [first, second] = (locale || "").toLowerCase().startsWith("ar") ? ["ar", "en"] : ["en", "ar"];
+    list = nonEmpty(byLang[first]) ?? nonEmpty(byLang[second]);
+  }
+  return (list ?? [])
+    .map((raw, i) => {
+      const item = (raw ?? {}) as Record<string, unknown>;
+      return { id: `p-${i}`, q: str(item.question).trim().slice(0, 200), a: str(item.answer).trim().slice(0, 1000) };
+    })
+    .filter((item) => item.q && item.a)
+    .slice(0, 8);
+}
+
 export default function Faq({ instance }: LibrarySectionProps) {
   const locale = useLocale();
   const s = useResolvedSettings(instance);
   const insideEditor = useInsideEditor();
+  const own = productQuestions(useMetafield("product", "faq", "items")?.value, locale);
 
-  const groups = readBlocks(instance as RawBlock, "group")
+  const typed = readBlocks(instance as RawBlock, "group")
     .map((group, i) => ({
       id: `g-${i}`,
       title: str(group.settings?.title),
@@ -60,6 +94,7 @@ export default function Faq({ instance }: LibrarySectionProps) {
     }))
     // A seeded group can arrive with a title and no questions.
     .filter((group) => group.items.length > 0);
+  const groups = own.length > 0 ? [{ id: "p", title: "", items: own }, ...typed] : typed;
   const total = groups.reduce((n, group) => n + group.items.length, 0);
 
   if (total === 0 && !insideEditor) return null;
@@ -79,7 +114,13 @@ export default function Faq({ instance }: LibrarySectionProps) {
         </h2>
 
         {total === 0 ? (
-          <p className="lib-muted">{localized(locale, "No questions added yet.", "لسه مفيش أسئلة.")}</p>
+          <p className="lib-muted">
+            {localized(
+              locale,
+              "No questions yet. On a product page, the product's own questions show here.",
+              "لسه مفيش أسئلة. في صفحة المنتج، أسئلة المنتج نفسه هتظهر هنا.",
+            )}
+          </p>
         ) : (
           groups.map((group) => (
             <div key={group.id} className="lib-faq-group">
