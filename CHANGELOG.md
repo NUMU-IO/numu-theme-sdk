@@ -4,6 +4,20 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
+## [0.19.2] - 2026-10-21
+
+### Added
+
+- **`lib-faq`** shows the current product's own questions on a product page,
+  before the questions typed into the section. They come from the product's
+  public `faq.items` metafield (written by the Lamaa app, or by hand), either
+  `{ar: [...], en: [...]}` or one `[{question, answer}]` list. The section uses
+  the visitor's language list, else the other one; it drops items without both
+  texts and caps them at 8, with questions at 200 and answers at 1,000
+  characters. Malformed data is ignored. The `FAQPage` microdata is unchanged.
+  Off a product page, or with no such metafield, the section renders exactly
+  as before.
+
 ## [0.19.1] - 2026-10-20
 
 ### Fixed
