@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { NAVIGATE_EVENT } from "../components/Link";
 import {
   availableValues,
   defaultVariant,
@@ -76,16 +77,46 @@ export function useVariantSelection(
     publishVariantSelection(product.id, selection);
   }, [product.id, selection]);
 
-  // `?variant=<id>` (a Back in Stock alert's link, an ad's deep link) picks that
-  // variant. After mount, so the server render and the first client render
-  // agree; keyed on the product id alone, so a theme that rebuilds the product
-  // object each render never undoes the shopper's own pick.
+  // `?variant=<id>` (a Back in Stock alert's link, an ad's deep link, a cart
+  // line) picks that variant. After mount, so the server render and the first
+  // client render agree; keyed on the product id alone, so a theme that
+  // rebuilds the product object each render never undoes the shopper's own
+  // pick.
+  //
+  // A soft navigation (the SDK <Link>) or back/forward to THIS product with
+  // another `?variant=` keeps the page mounted, so a mount-time read alone left
+  // the old variant on screen — tapping the "M" line of a bag while on the "S"
+  // page did nothing. Those re-read the target URL too. An id that is not one
+  // of this product's variants (a link to another product) changes nothing,
+  // and neither does a URL with no `?variant=`.
+  const latest = useRef(product);
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("variant");
-    const chosen = id ? product.variants?.find((v) => String(v.id) === id) : undefined;
-    const values = chosen?.option_values || chosen?.options;
-    if (values && Object.keys(values).length > 0) setSelection({ ...values });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    latest.current = product;
+  }, [product]);
+  useEffect(() => {
+    const pick = (search: string) => {
+      const id = new URLSearchParams(search).get("variant");
+      const chosen = id ? latest.current.variants?.find((v) => String(v.id) === id) : undefined;
+      const values = chosen?.option_values || chosen?.options;
+      if (values && Object.keys(values).length > 0) setSelection({ ...values });
+    };
+    const onNavigate = (e: Event) => {
+      const href = (e as CustomEvent<{ href?: unknown }>).detail?.href;
+      if (typeof href !== "string") return;
+      try {
+        pick(new URL(href, window.location.href).search);
+      } catch {
+        // Not a URL — nothing to read.
+      }
+    };
+    const onPopState = () => pick(window.location.search);
+    pick(window.location.search);
+    window.addEventListener(NAVIGATE_EVENT, onNavigate);
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener(NAVIGATE_EVENT, onNavigate);
+      window.removeEventListener("popstate", onPopState);
+    };
   }, [product.id]);
 
   const availability = useMemo(

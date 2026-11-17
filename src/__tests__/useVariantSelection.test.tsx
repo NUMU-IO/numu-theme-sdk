@@ -13,6 +13,7 @@ import { renderToString } from "react-dom/server";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { requestNavigate } from "../components/Link";
 import { useVariantSelection } from "../hooks/useVariantSelection";
 import type { Product, ProductVariant } from "../types/entities";
 
@@ -71,5 +72,43 @@ describe("useVariantSelection ?variant=", () => {
     expect(el.textContent).toBe("v-m");
     await act(async () => root?.unmount());
     el.remove();
+  });
+});
+
+/**
+ * A cart line links `/products/<id>?variant=<id>`. Tapped while that same
+ * product's page is open, the host soft-navigates and the page stays mounted,
+ * so the mount-time read never runs again: the "M" line left "S" selected.
+ */
+describe("useVariantSelection follows ?variant= on a soft navigation or back/forward", () => {
+  it("a link to another variant of this product selects it", () => {
+    visit("?variant=v-s");
+    render(<Probe />);
+    expect(chosen()).toBe("v-s");
+    act(() => {
+      requestNavigate("/products/p1?variant=v-l");
+    });
+    expect(chosen()).toBe("v-l");
+  });
+
+  it("a link to another product, a link with no ?variant= and a malformed href change nothing", () => {
+    visit("?variant=v-m");
+    render(<Probe />);
+    act(() => {
+      requestNavigate("/products/other?variant=someone-else");
+      requestNavigate("/products/p1");
+      requestNavigate("//[");
+    });
+    expect(chosen()).toBe("v-m");
+  });
+
+  it("back/forward re-reads the URL", () => {
+    visit("?variant=v-s");
+    render(<Probe />);
+    act(() => {
+      visit("?variant=v-l");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(chosen()).toBe("v-l");
   });
 });
