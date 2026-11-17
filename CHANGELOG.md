@@ -4,6 +4,19 @@ All notable changes to `@numueg/theme-sdk` are documented here. The format is ba
 
 ## [Unreleased]
 
+## [0.19.3] - 2026-11-17
+
+### Fixed
+
+- **`useVariantSelection`** follows `?variant=<id>` after the page has
+  mounted. A soft navigation through the SDK `<Link>` (or `requestNavigate`)
+  to the product already on screen, or a back/forward step, now selects the
+  variant the new URL names. Before, the parameter was read once per product,
+  so a shopper on the "S" page who tapped the bag's "M" line still saw "S". A
+  link to another product, a URL without `?variant=`, or an id that is not one
+  of this product's variants changes nothing. The first read still happens
+  after mount, so hydration is unchanged.
+
 ## [0.19.2] - 2026-10-21
 
 ### Added
